@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Base de données
+data/app.db
+data/*.db
+
+# Environnement virtuel
+venv/
+.env
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+*.zip

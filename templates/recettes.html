@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">💰 Recettes</h1>
+    <p class="page-subtitle">Total : <strong>{{ "{:,.2f}".format(total).replace(',', ' ') }} €</strong></p>
+  </div>
+  <button class="btn btn-primary" onclick="ouvrirFormRecette()">+ Nouvelle recette</button>
+</div>
+
+<!-- Répartition par catégorie -->
+<div class="kpi-grid kpi-grid-3" style="margin-bottom:20px;">
+  {% set cat_icons = {'cotisation':'🎫','subvention':'🏛️','don':'🤝','vente':'🛍️','autre':'📌'} %}
+  {% set cat_colors = {'cotisation':'#3b82f6','subvention':'#8b5cf6','don':'#f59e0b','vente':'#10b981','autre':'#94a3b8'} %}
+  {% for c in categories %}
+  {% if totaux_cat[c] > 0 %}
+  <div class="kpi-card kpi-card-compact" style="cursor:pointer;" onclick="filtrerCat('{{ c }}')">
+    <div class="kpi-icon">{{ cat_icons.get(c, '📌') }}</div>
+    <div class="kpi-content">
+      <div class="kpi-value" style="color:{{ cat_colors.get(c,'#94a3b8') }};">{{ "{:,.0f}".format(totaux_cat[c]).replace(',', ' ') }} €</div>
+      <div class="kpi-label">{{ c | capitalize }}</div>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+
+<!-- Filtres -->
+<div class="card filtres-bar" style="margin-bottom:12px;">
+  <form method="get" action="{{ url_for('recettes.recettes') }}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <select name="categorie" onchange="this.form.submit()" style="width:auto;border:1px solid var(--border);border-radius:var(--radius);padding:7px 8px;font-size:0.82rem;background:var(--surface);">
+      <option value="all" {% if cat_filtre=='all' %}selected{% endif %}>Toutes catégories</option>
+      {% for c in categories %}
+      <option value="{{ c }}" {% if cat_filtre==c %}selected{% endif %}>{{ c | capitalize }}</option>
+      {% endfor %}
+    </select>
+    <select name="sort" onchange="this.form.submit()" style="width:auto;border:1px solid var(--border);border-radius:var(--radius);padding:7px 8px;font-size:0.82rem;background:var(--surface);">
+      <option value="date" {% if sort=='date' %}selected{% endif %}>Date</option>
+      <option value="montant" {% if sort=='montant' %}selected{% endif %}>Montant</option>
+      <option value="libelle" {% if sort=='libelle' %}selected{% endif %}>Libellé</option>
+    </select>
+    {% if cat_filtre != 'all' %}
+    <a href="{{ url_for('recettes.recettes') }}" class="btn btn-secondary btn-sm">✕ Réinitialiser</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Liste -->
+<div class="card">
+  {% if recettes %}
+  <div class="table-wrapper">
+  <table>
+    <thead>
+      <tr>
+        <th>Libellé</th>
+        <th>Montant</th>
+        <th class="hide-mobile">Catégorie</th>
+        <th class="hide-mobile">Date</th>
+        <th style="width:80px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in recettes %}
+    <tr>
+      <td>
+        <strong>{{ r.libelle }}</strong>
+        {% if r.notes %}<br><small class="text-muted">{{ r.notes }}</small>{% endif %}
+      </td>
+      <td style="white-space:nowrap;"><strong style="color:#16a34a;">+{{ "{:,.2f}".format(r.montant).replace(',', ' ') }} €</strong></td>
+      <td class="hide-mobile"><span class="badge badge-cat-{{ r.categorie }}">{{ r.categorie }}</span></td>
+      <td class="hide-mobile"><small class="text-muted">{{ r.date_recette or '—' }}</small></td>
+      <td>
+        <div style="display:flex;gap:4px;">
+          <button onclick="editerRecette(this)" data-rec='{{ r|tojson }}' class="btn btn-secondary btn-sm">✏️</button>
+          <button onclick="supprimerRecette({{ r.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="empty-msg">Aucune recette enregistrée</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var _recEditId = null;
+
+function ouvrirFormRecette() {
+  _recEditId = null;
+  openModal('Nouvelle recette', _formRecHtml({libelle:'', montant:'', categorie:'cotisation', date_recette:'', notes:''}));
+}
+
+function editerRecette(btn) {
+  var data = JSON.parse(btn.getAttribute('data-rec'));
+  _recEditId = data.id;
+  openModal('Modifier la recette', _formRecHtml(data));
+}
+
+function _formRecHtml(d) {
+  var cats = ['cotisation','subvention','don','vente','autre'];
+  var catOpts = cats.map(function(c){ return '<option value="'+c+'"'+(d.categorie===c?' selected':'')+'>'+c.charAt(0).toUpperCase()+c.slice(1)+'</option>'; }).join('');
+  return '<div class="form-grid">' +
+    '<div class="form-group form-full"><label>Libellé *</label><input type="text" id="rec-libelle" value="'+escHtml(d.libelle||'')+'" required></div>' +
+    '<div class="form-group"><label>Montant (€) *</label><input type="number" id="rec-montant" value="'+escHtml(d.montant||'')+'" step="0.01" min="0" required></div>' +
+    '<div class="form-group"><label>Catégorie</label><select id="rec-categorie">'+catOpts+'</select></div>' +
+    '<div class="form-group"><label>Date</label><input type="date" id="rec-date" value="'+escHtml(d.date_recette||'')+'"></div>' +
+    '<div class="form-group form-full"><label>Notes</label><textarea id="rec-notes" rows="2">'+escHtml(d.notes||'')+'</textarea></div>' +
+    '</div><div class="form-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+    '<button type="button" class="btn btn-primary" onclick="saveRecette()">Enregistrer</button></div>';
+}
+
+function saveRecette() {
+  var libelle = document.getElementById('rec-libelle').value.trim();
+  var montant = parseFloat(document.getElementById('rec-montant').value);
+  if (!libelle || isNaN(montant)) { alert('Libellé et montant obligatoires.'); return; }
+  var payload = {
+    libelle: libelle, montant: montant,
+    categorie: document.getElementById('rec-categorie').value,
+    date_recette: document.getElementById('rec-date').value,
+    notes: document.getElementById('rec-notes').value
+  };
+  var url = _recEditId ? 'api/recettes/' + _recEditId : 'api/recettes';
+  fetch(url, { method: _recEditId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+    .then(function(){ closeModal(); location.reload(); });
+}
+
+function supprimerRecette(id) {
+  if (!confirm('Supprimer cette recette ?')) return;
+  fetch('api/recettes/' + id, { method: 'DELETE' }).then(function(){ location.reload(); });
+}
+
+function filtrerCat(cat) {
+  window.location.href = '{{ url_for("recettes.recettes") }}?categorie=' + cat;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

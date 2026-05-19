@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">📅 Événements</h1>
+    <p class="page-subtitle">Organisez vos réunions et sondez les disponibilités (style Doodle)</p>
+  </div>
+  <button class="btn btn-primary" onclick="ouvrirFormEvenement()">+ Nouvel événement</button>
+</div>
+
+{% if evenements %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+  {% for e in evenements %}
+  <div class="card" style="padding:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:1rem;margin-bottom:4px;">{{ e.titre }}</div>
+        {% if e.lieu %}<div style="font-size:0.78rem;color:var(--text-muted);">📍 {{ e.lieu }}</div>{% endif %}
+        {% if e.description %}<div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">{{ e.description[:80] }}{% if e.description|length > 80 %}…{% endif %}</div>{% endif %}
+      </div>
+      <span class="badge badge-evt-{{ e.statut }}" style="flex-shrink:0;">{{ e.statut.replace('_',' ') }}</span>
+    </div>
+    <div style="display:flex;gap:16px;font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;">
+      <span>📅 {{ e.nb_creneaux }} créneau(x)</span>
+      <span>👥 {{ e.nb_participants }} réponse(s)</span>
+    </div>
+    {% if e.prochain_creneau %}
+    <div style="font-size:0.78rem;background:#eff6ff;color:#1e40af;padding:6px 10px;border-radius:6px;margin-bottom:12px;">
+      🕐 Prochain créneau : {{ e.prochain_creneau[:16].replace('T', ' ') if e.prochain_creneau else '—' }}
+    </div>
+    {% endif %}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <a href="{{ url_for('evenements.evenement_detail', eid=e.id) }}" class="btn btn-primary btn-sm" style="flex:1;justify-content:center;">Voir le sondage</a>
+      <button onclick="editerEvenement(this)" data-evt='{{ e|tojson }}' class="btn btn-secondary btn-sm">✏️</button>
+      <button onclick="supprimerEvenement({{ e.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:48px 20px;">
+  <div style="font-size:3rem;margin-bottom:16px;">📅</div>
+  <p class="empty-msg" style="margin:0 0 20px;">Aucun événement créé</p>
+  <button class="btn btn-primary" onclick="ouvrirFormEvenement()">Créer le premier événement</button>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+var _evtEditId = null;
+
+function ouvrirFormEvenement() {
+  _evtEditId = null;
+  openModal('Nouvel événement', _formEvtHtml({titre:'', description:'', lieu:'', statut:'planification'}));
+}
+
+function editerEvenement(btn) {
+  var data = JSON.parse(btn.getAttribute('data-evt'));
+  _evtEditId = data.id;
+  openModal('Modifier l\'événement', _formEvtHtml(data));
+}
+
+function _formEvtHtml(d) {
+  return '<div class="form-grid">' +
+    '<div class="form-group form-full"><label>Titre *</label><input type="text" id="evt-titre" value="'+escHtml(d.titre||'')+'" required></div>' +
+    '<div class="form-group"><label>Lieu</label><input type="text" id="evt-lieu" value="'+escHtml(d.lieu||'')+'"></div>' +
+    '<div class="form-group"><label>Statut</label><select id="evt-statut">' +
+    '<option value="planification"'+(d.statut==='planification'?' selected':'')+'>Planification</option>' +
+    '<option value="confirme"'+(d.statut==='confirme'?' selected':'')+'>Confirmé</option>' +
+    '<option value="annule"'+(d.statut==='annule'?' selected':'')+'>Annulé</option>' +
+    '</select></div>' +
+    '<div class="form-group form-full"><label>Description</label><textarea id="evt-description" rows="2">'+escHtml(d.description||'')+'</textarea></div>' +
+    '</div><div class="form-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+    '<button type="button" class="btn btn-primary" onclick="saveEvenement()">Enregistrer</button></div>';
+}
+
+function saveEvenement() {
+  var titre = document.getElementById('evt-titre').value.trim();
+  if (!titre) { alert('Le titre est obligatoire.'); return; }
+  var payload = {
+    titre: titre,
+    lieu: document.getElementById('evt-lieu').value,
+    statut: document.getElementById('evt-statut').value,
+    description: document.getElementById('evt-description').value
+  };
+  var url = _evtEditId ? 'api/evenements/' + _evtEditId : 'api/evenements';
+  fetch(url, { method: _evtEditId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      closeModal();
+      if (!_evtEditId && data.id) {
+        window.location.href = 'evenements/' + data.id;
+      } else {
+        location.reload();
+      }
+    });
+}
+
+function supprimerEvenement(id) {
+  if (!confirm('Supprimer cet événement et toutes ses réponses ?')) return;
+  fetch('api/evenements/' + id, { method: 'DELETE' }).then(function(){ location.reload(); });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

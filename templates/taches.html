@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% block head %}
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<style>
+  .ql-toolbar { border-radius: var(--radius) var(--radius) 0 0; border-color: var(--border) !important; background: var(--bg); }
+  .ql-container { border-radius: 0 0 var(--radius) var(--radius); border-color: var(--border) !important; font-family: inherit; font-size: 0.875rem; }
+  .ql-editor { min-height: 110px; max-height: 260px; overflow-y: auto; }
+  .ql-editor.ql-blank::before { color: var(--text-muted); font-style: normal; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">✅ Tâches</h1>
+    <p class="page-subtitle">{{ nb_nouveau }} à faire · {{ nb_en_cours }} en cours · {{ nb_clos }} closes{% if nb_important %} · <span style="color:#d97706;font-weight:700;">⭐ {{ nb_important }} important(s)</span>{% endif %}</p>
+  </div>
+  <button class="btn btn-primary" onclick="ouvrirFormTache()">+ Nouvelle tâche</button>
+</div>
+
+<form method="get" action="{{ url_for('taches.taches') }}" id="form-filtres">
+  <input type="hidden" name="statut" value="{{ statut_filtre }}">
+  <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
+    <div style="position:relative;flex:1;min-width:0;max-width:280px;">
+      <input type="text" name="q" value="{{ recherche }}" placeholder="Rechercher…"
+             style="width:100%;padding:7px 10px 7px 30px;border:1px solid var(--border);border-radius:var(--radius);font-size:0.85rem;background:var(--surface);"
+             onkeyup="if(event.key==='Enter')this.form.submit()">
+      <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:0.85rem;pointer-events:none;">🔍</span>
+    </div>
+    <select name="important" onchange="this.form.submit()" style="width:auto;flex-shrink:0;border:1px solid var(--border);border-radius:var(--radius);padding:7px 8px;font-size:0.82rem;background:var(--surface);">
+      <option value="">Priorité</option>
+      <option value="1" {% if important_filtre=='1' %}selected{% endif %}>⭐ Important</option>
+    </select>
+    <select name="tri" onchange="this.form.submit()" style="width:auto;flex-shrink:0;border:1px solid var(--border);border-radius:var(--radius);padding:7px 8px;font-size:0.82rem;background:var(--surface);">
+      <option value="created_at" {% if tri=='created_at' %}selected{% endif %}>Création</option>
+      <option value="date_echeance" {% if tri=='date_echeance' %}selected{% endif %}>Échéance</option>
+    </select>
+    {% if recherche or important_filtre %}
+    <a href="{{ url_for('taches.taches', statut=statut_filtre) }}" class="btn btn-secondary btn-sm" style="flex-shrink:0;padding:7px 10px;">✕</a>
+    {% endif %}
+  </div>
+</form>
+
+<div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
+  <a href="{{ url_for('taches.taches', tri=tri, q=recherche) }}"
+     style="padding:5px 14px;border-radius:20px;font-size:0.8rem;font-weight:600;text-decoration:none;
+            background:{% if not statut_filtre and not important_filtre %}var(--primary){% else %}var(--bg){% endif %};
+            color:{% if not statut_filtre and not important_filtre %}#fff{% else %}var(--text-muted){% endif %};
+            border:1px solid {% if not statut_filtre and not important_filtre %}var(--primary){% else %}var(--border){% endif %};">
+    Tout ({{ nb_total }})
+  </a>
+  <a href="{{ url_for('taches.taches', statut='nouveau', tri=tri, q=recherche) }}"
+     style="padding:5px 14px;border-radius:20px;font-size:0.8rem;font-weight:600;text-decoration:none;
+            background:{% if statut_filtre=='nouveau' %}var(--primary){% else %}var(--bg){% endif %};
+            color:{% if statut_filtre=='nouveau' %}#fff{% else %}var(--text-muted){% endif %};
+            border:1px solid {% if statut_filtre=='nouveau' %}var(--primary){% else %}var(--border){% endif %};">
+    Nouveau ({{ nb_nouveau }})
+  </a>
+  <a href="{{ url_for('taches.taches', statut='en_cours', tri=tri, q=recherche) }}"
+     style="padding:5px 14px;border-radius:20px;font-size:0.8rem;font-weight:600;text-decoration:none;
+            background:{% if statut_filtre=='en_cours' %}#1e40af{% else %}var(--bg){% endif %};
+            color:{% if statut_filtre=='en_cours' %}#fff{% else %}var(--text-muted){% endif %};
+            border:1px solid {% if statut_filtre=='en_cours' %}#1e40af{% else %}var(--border){% endif %};">
+    En cours ({{ nb_en_cours }})
+  </a>
+  <a href="{{ url_for('taches.taches', statut='clos', tri=tri, q=recherche) }}"
+     style="padding:5px 14px;border-radius:20px;font-size:0.8rem;font-weight:600;text-decoration:none;
+            background:{% if statut_filtre=='clos' %}#166534{% else %}var(--bg){% endif %};
+            color:{% if statut_filtre=='clos' %}#fff{% else %}var(--text-muted){% endif %};
+            border:1px solid {% if statut_filtre=='clos' %}#166534{% else %}var(--border){% endif %};">
+    Clos ({{ nb_clos }})
+  </a>
+  {% if nb_important %}
+  <a href="{{ url_for('taches.taches', important='1', tri=tri, q=recherche) }}"
+     style="padding:5px 14px;border-radius:20px;font-size:0.8rem;font-weight:600;text-decoration:none;
+            background:{% if important_filtre=='1' %}#92400e{% else %}#fef3c7{% endif %};
+            color:{% if important_filtre=='1' %}#fff{% else %}#92400e{% endif %};
+            border:1px solid #fcd34d;">
+    ⭐ Importants ({{ nb_important }})
+  </a>
+  {% endif %}
+</div>
+
+{% if taches %}
+  {% for t in taches %}
+  <div class="card tache-card {% if t.important %}tache-important{% endif %}" id="tache-{{ t.id }}" style="margin-bottom:10px;padding:14px 16px;{% if t.statut=='clos' %}background:#f0fdf4;{% endif %}">
+    <div style="display:flex;align-items:flex-start;gap:10px;">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:{% if t.contenu %}5px{% else %}0{% endif %};">
+          <span style="font-weight:700;font-size:0.95rem;{% if t.statut=='clos' %}text-decoration:line-through;color:var(--text-muted);{% endif %}">{{ t.titre }}</span>
+          {% if t.date_echeance %}
+            <span style="font-size:0.72rem;padding:2px 8px;border-radius:4px;font-weight:600;white-space:nowrap;
+                         background:#eff6ff;color:#1e40af;">
+              Échéance : {{ t.date_echeance }}
+            </span>
+          {% endif %}
+          {% if t.important and t.statut != 'clos' %}
+          <span style="background:#fef3c7;color:#d97706;font-size:0.68rem;padding:2px 6px;border-radius:4px;font-weight:700;">IMPORTANT</span>
+          {% endif %}
+        </div>
+        {% if t.contenu %}
+        <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.5;margin-bottom:8px;max-height:9em;overflow:hidden;">{{ t.contenu | safe }}</div>
+        {% endif %}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end;">
+        <span class="desktop-only" style="font-size:0.7rem;color:var(--text-muted);margin-bottom:2px;">{{ t.created_at[:10] if t.created_at else '' }}</span>
+        <button onclick="editerTache(this)" data-tache='{{ t|tojson }}' class="btn btn-secondary btn-sm">✏️</button>
+        <button onclick="toggleImportant({{ t.id }}, this)"
+                class="btn btn-sm"
+                style="background:{% if t.important %}#fef3c7{% else %}var(--bg){% endif %};color:{% if t.important %}#d97706{% else %}var(--text-muted){% endif %};border:1px solid {% if t.important %}#fcd34d{% else %}var(--border){% endif %};">⭐</button>
+        <button onclick="supprimerTache({{ t.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap;">
+      <button onclick="changerStatut({{ t.id }}, 'nouveau', this)"
+              class="btn btn-sm {% if t.statut=='nouveau' %}btn-primary{% else %}btn-secondary{% endif %}"
+              style="{% if t.statut!='nouveau' %}opacity:0.6;{% endif %}">Nouveau</button>
+      <button onclick="changerStatut({{ t.id }}, 'en_cours', this)"
+              class="btn btn-sm"
+              style="{% if t.statut=='en_cours' %}background:#1e40af;color:#fff;border-color:#1e40af;{% else %}background:var(--bg);color:var(--text-muted);border:1px solid var(--border);opacity:0.6;{% endif %}">En cours</button>
+      <button onclick="changerStatut({{ t.id }}, 'clos', this)"
+              class="btn btn-sm"
+              style="{% if t.statut=='clos' %}background:#166534;color:#fff;border-color:#166534;{% else %}background:var(--bg);color:var(--text-muted);border:1px solid var(--border);opacity:0.6;{% endif %}">✓ Clos</button>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card" style="text-align:center;padding:40px 20px;">
+    <div style="font-size:2.5rem;margin-bottom:12px;">✅</div>
+    <p class="empty-msg" style="margin:0 0 16px;">Aucune tâche pour le moment</p>
+    <button class="btn btn-primary" onclick="ouvrirFormTache()">Créer une tâche</button>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script>
+var _tacheEditId = null;
+var _quillEditor = null;
+
+function ouvrirFormTache() {
+  _tacheEditId = null;
+  openModal('Nouvelle tâche', _formTacheHtml({titre:'', contenu:'', statut:'nouveau', important:0, date_echeance:''}));
+  _initQuill('');
+}
+
+function editerTache(btn) {
+  var data = JSON.parse(btn.getAttribute('data-tache'));
+  _tacheEditId = data.id;
+  openModal('Modifier la tâche', _formTacheHtml(data));
+  _initQuill(data.contenu || '');
+}
+
+function _initQuill(content) {
+  _quillEditor = new Quill('#tf-contenu-editor', {
+    theme: 'snow',
+    placeholder: 'Détails, notes…',
+    modules: { toolbar: [['bold','italic','underline'],[{list:'ordered'},{list:'bullet'}],['clean']] }
+  });
+  if (content) _quillEditor.root.innerHTML = content;
+}
+
+function _formTacheHtml(d) {
+  return '<div class="form-grid" style="grid-template-columns:1fr;">' +
+    '<div class="form-group form-full"><label>Titre <span style="color:#dc2626">*</span></label>' +
+    '<input type="text" id="tf-titre" value="' + escHtml(d.titre||'') + '" placeholder="Titre de la tâche" required></div>' +
+    '<div class="form-group form-full"><label>Description</label><div id="tf-contenu-editor"></div></div>' +
+    '<div class="form-group"><label>Statut</label><select id="tf-statut">' +
+    '<option value="nouveau"' + (d.statut==='nouveau'?' selected':'') + '>Nouveau</option>' +
+    '<option value="en_cours"' + (d.statut==='en_cours'?' selected':'') + '>En cours</option>' +
+    '<option value="clos"' + (d.statut==='clos'?' selected':'') + '>Clos</option></select></div>' +
+    '<div class="form-group"><label>Date d\'échéance</label><input type="date" id="tf-echeance" value="' + escHtml(d.date_echeance||'') + '"></div>' +
+    '<div class="form-group form-full" style="flex-direction:row;align-items:center;gap:10px;margin-top:4px;">' +
+    '<input type="checkbox" id="tf-important" style="width:auto;"' + (d.important?' checked':'') + '>' +
+    '<label for="tf-important" style="margin:0;cursor:pointer;">⭐ Marquer comme Important</label></div>' +
+    '</div><div class="form-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+    '<button type="button" class="btn btn-primary" onclick="saveTache()">Enregistrer</button></div>';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function saveTache() {
+  var titre = document.getElementById('tf-titre').value.trim();
+  if (!titre) { alert('Le titre est obligatoire.'); return; }
+  var contenu = _quillEditor ? _quillEditor.root.innerHTML : '';
+  if (contenu === '<p><br></p>') contenu = '';
+  var payload = {
+    titre: titre, contenu: contenu,
+    statut: document.getElementById('tf-statut').value,
+    important: document.getElementById('tf-important').checked,
+    date_echeance: document.getElementById('tf-echeance').value || null
+  };
+  var url = _tacheEditId ? 'api/taches/' + _tacheEditId : 'api/taches';
+  fetch(url, { method: _tacheEditId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+    .then(function(){ closeModal(); location.reload(); });
+}
+
+function supprimerTache(id) {
+  if (!confirm('Supprimer cette tâche ?')) return;
+  fetch('api/taches/' + id, { method: 'DELETE' }).then(function(){ location.reload(); });
+}
+
+function changerStatut(id, statut, btn) {
+  fetch('api/taches/' + id + '/statut', {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({statut: statut})
+  }).then(function(){ location.reload(); });
+}
+
+function toggleImportant(id, btn) {
+  fetch('api/taches/' + id + '/important', { method: 'PUT' })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      btn.style.background = data.important ? '#fef3c7' : 'var(--bg)';
+      btn.style.color = data.important ? '#d97706' : 'var(--text-muted)';
+      btn.style.borderColor = data.important ? '#fcd34d' : 'var(--border)';
+      var card = document.getElementById('tache-' + id);
+      if (card) { if (data.important) card.classList.add('tache-important'); else card.classList.remove('tache-important'); }
+    });
+}
+</script>
+{% endblock %}

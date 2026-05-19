@@ -1,0 +1,10 @@
+{
+  "name": "Parentix",
+  "short_name": "Parentix",
+  "description": "Pilotage de l'association FCPE",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e40af",
+  "theme_color": "#1e40af",
+  "icons": []
+}

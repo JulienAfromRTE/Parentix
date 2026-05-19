@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🎡 Kermesse</h1>
+    <p class="page-subtitle">Gérez les stands et les inscriptions des bénévoles</p>
+  </div>
+  <button class="btn btn-primary" onclick="ouvrirFormEdition()">+ Nouvelle kermesse</button>
+</div>
+
+{% if editions %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+  {% for e in editions %}
+  <div class="card" style="padding:16px;">
+    <div style="margin-bottom:10px;">
+      <div style="font-weight:700;font-size:1.05rem;">{{ e.nom }}</div>
+      {% if e.date_kermesse %}<div style="font-size:0.82rem;color:var(--text-muted);margin-top:3px;">📅 {{ e.date_kermesse }}</div>{% endif %}
+      {% if e.notes %}<div style="font-size:0.78rem;color:var(--text-muted);margin-top:3px;">{{ e.notes }}</div>{% endif %}
+    </div>
+    <div style="display:flex;gap:16px;font-size:0.8rem;color:var(--text-muted);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+      <span>🎪 {{ e.nb_stands }} stand(s)</span>
+      <span>👥 {{ e.nb_inscrits }} inscrit(s)</span>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <a href="{{ url_for('kermesse.kermesse_detail', eid=e.id) }}" class="btn btn-primary btn-sm" style="flex:1;justify-content:center;">Gérer les stands</a>
+      <button onclick="editerEdition(this)" data-edition='{{ e|tojson }}' class="btn btn-secondary btn-sm">✏️</button>
+      <button onclick="supprimerEdition({{ e.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:48px 20px;">
+  <div style="font-size:3rem;margin-bottom:16px;">🎡</div>
+  <p class="empty-msg" style="margin:0 0 20px;">Aucune kermesse créée</p>
+  <button class="btn btn-primary" onclick="ouvrirFormEdition()">Créer la première kermesse</button>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+var _editionEditId = null;
+
+function ouvrirFormEdition() {
+  _editionEditId = null;
+  openModal('Nouvelle kermesse', _formEditionHtml({nom:'', date_kermesse:'', notes:''}));
+}
+
+function editerEdition(btn) {
+  var data = JSON.parse(btn.getAttribute('data-edition'));
+  _editionEditId = data.id;
+  openModal('Modifier la kermesse', _formEditionHtml(data));
+}
+
+function _formEditionHtml(d) {
+  return '<div class="form-grid">' +
+    '<div class="form-group form-full"><label>Nom *</label><input type="text" id="ed-nom" value="'+escHtml(d.nom||'')+'" placeholder="Kermesse 2025-2026" required></div>' +
+    '<div class="form-group"><label>Date</label><input type="date" id="ed-date" value="'+escHtml(d.date_kermesse||'')+'"></div>' +
+    '<div class="form-group form-full"><label>Notes</label><textarea id="ed-notes" rows="2">'+escHtml(d.notes||'')+'</textarea></div>' +
+    '</div><div class="form-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+    '<button type="button" class="btn btn-primary" onclick="saveEdition()">Enregistrer</button></div>';
+}
+
+function saveEdition() {
+  var nom = document.getElementById('ed-nom').value.trim();
+  if (!nom) { alert('Le nom est obligatoire.'); return; }
+  var payload = {
+    nom: nom,
+    date_kermesse: document.getElementById('ed-date').value,
+    notes: document.getElementById('ed-notes').value
+  };
+  var url = _editionEditId ? 'api/kermesse/editions/' + _editionEditId : 'api/kermesse/editions';
+  fetch(url, { method: _editionEditId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      closeModal();
+      if (!_editionEditId && data.id) {
+        window.location.href = 'kermesse/' + data.id;
+      } else {
+        location.reload();
+      }
+    });
+}
+
+function supprimerEdition(id) {
+  if (!confirm('Supprimer cette kermesse et tous ses stands ?')) return;
+  fetch('api/kermesse/editions/' + id, { method: 'DELETE' }).then(function(){ location.reload(); });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

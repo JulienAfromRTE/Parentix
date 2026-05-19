@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">💸 Dépenses</h1>
+    <p class="page-subtitle">Total : <strong>{{ "{:,.2f}".format(total).replace(',', ' ') }} €</strong></p>
+  </div>
+  <button class="btn btn-primary" onclick="ouvrirFormDepense()">+ Nouvelle dépense</button>
+</div>
+
+<!-- Répartition par catégorie -->
+<div class="kpi-grid kpi-grid-3" style="margin-bottom:20px;">
+  {% set cat_icons = {'materiel':'🛒','fonctionnement':'⚙️','animation':'🎉','communication':'📣','autre':'📌'} %}
+  {% set cat_colors = {'materiel':'#3b82f6','fonctionnement':'#8b5cf6','animation':'#f59e0b','communication':'#10b981','autre':'#94a3b8'} %}
+  {% for c in categories %}
+  {% if totaux_cat[c] > 0 %}
+  <div class="kpi-card kpi-card-compact" style="cursor:pointer;" onclick="filtrerCat('{{ c }}')">
+    <div class="kpi-icon">{{ cat_icons.get(c, '📌') }}</div>
+    <div class="kpi-content">
+      <div class="kpi-value" style="color:{{ cat_colors.get(c,'#94a3b8') }};">{{ "{:,.0f}".format(totaux_cat[c]).replace(',', ' ') }} €</div>
+      <div class="kpi-label">{{ c | capitalize }}</div>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+
+<!-- Filtres -->
+<div class="card filtres-bar" style="margin-bottom:12px;">
+  <form method="get" action="{{ url_for('depenses.depenses') }}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <select name="categorie" onchange="this.form.submit()" style="width:auto;border:1px solid var(--border);border-radius:var(--radius);padding:7px 8px;font-size:0.82rem;background:var(--surface);">
+      <option value="all" {% if cat_filtre=='all' %}selected{% endif %}>Toutes catégories</option>
+      {% for c in categories %}
+      <option value="{{ c }}" {% if cat_filtre==c %}selected{% endif %}>{{ c | capitalize }}</option>
+      {% endfor %}
+    </select>
+    <select name="sort" onchange="this.form.submit()" style="width:auto;border:1px solid var(--border);border-radius:var(--radius);padding:7px 8px;font-size:0.82rem;background:var(--surface);">
+      <option value="date" {% if sort=='date' %}selected{% endif %}>Date</option>
+      <option value="montant" {% if sort=='montant' %}selected{% endif %}>Montant</option>
+      <option value="libelle" {% if sort=='libelle' %}selected{% endif %}>Libellé</option>
+    </select>
+    {% if cat_filtre != 'all' %}
+    <a href="{{ url_for('depenses.depenses') }}" class="btn btn-secondary btn-sm">✕ Réinitialiser</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Liste -->
+<div class="card">
+  {% if depenses %}
+  <div class="table-wrapper">
+  <table>
+    <thead>
+      <tr>
+        <th>Libellé</th>
+        <th>Montant</th>
+        <th class="hide-mobile">Catégorie</th>
+        <th class="hide-mobile">Date</th>
+        <th style="width:80px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for d in depenses %}
+    <tr>
+      <td>
+        <strong>{{ d.libelle }}</strong>
+        {% if d.notes %}<br><small class="text-muted">{{ d.notes }}</small>{% endif %}
+      </td>
+      <td style="white-space:nowrap;"><strong style="color:#ea580c;">{{ "{:,.2f}".format(d.montant).replace(',', ' ') }} €</strong></td>
+      <td class="hide-mobile"><span class="badge badge-cat-{{ d.categorie }}">{{ d.categorie }}</span></td>
+      <td class="hide-mobile"><small class="text-muted">{{ d.date_depense or '—' }}</small></td>
+      <td>
+        <div style="display:flex;gap:4px;">
+          <button onclick="editerDepense(this)" data-dep='{{ d|tojson }}' class="btn btn-secondary btn-sm">✏️</button>
+          <button onclick="supprimerDepense({{ d.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if cat_filtre != 'all' %}
+  <div style="padding:12px 0 0;font-size:0.85rem;color:var(--text-muted);">
+    Sous-total ({{ cat_filtre }}) : <strong style="color:var(--text);">{{ "{:,.2f}".format(total_filtre).replace(',', ' ') }} €</strong>
+  </div>
+  {% endif %}
+  {% else %}
+  <p class="empty-msg">Aucune dépense enregistrée</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var _depEditId = null;
+
+function ouvrirFormDepense() {
+  _depEditId = null;
+  openModal('Nouvelle dépense', _formDepHtml({libelle:'', montant:'', categorie:'autre', date_depense:'', notes:''}));
+}
+
+function editerDepense(btn) {
+  var data = JSON.parse(btn.getAttribute('data-dep'));
+  _depEditId = data.id;
+  openModal('Modifier la dépense', _formDepHtml(data));
+}
+
+function _formDepHtml(d) {
+  var cats = ['materiel','fonctionnement','animation','communication','autre'];
+  var catOpts = cats.map(function(c){ return '<option value="'+c+'"'+(d.categorie===c?' selected':'')+'>'+c.charAt(0).toUpperCase()+c.slice(1)+'</option>'; }).join('');
+  return '<div class="form-grid">' +
+    '<div class="form-group form-full"><label>Libellé *</label><input type="text" id="dep-libelle" value="'+escHtml(d.libelle||'')+'" required></div>' +
+    '<div class="form-group"><label>Montant (€) *</label><input type="number" id="dep-montant" value="'+escHtml(d.montant||'')+'" step="0.01" min="0" required></div>' +
+    '<div class="form-group"><label>Catégorie</label><select id="dep-categorie">'+catOpts+'</select></div>' +
+    '<div class="form-group"><label>Date</label><input type="date" id="dep-date" value="'+escHtml(d.date_depense||'')+'"></div>' +
+    '<div class="form-group form-full"><label>Notes</label><textarea id="dep-notes" rows="2">'+escHtml(d.notes||'')+'</textarea></div>' +
+    '</div><div class="form-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+    '<button type="button" class="btn btn-primary" onclick="saveDepense()">Enregistrer</button></div>';
+}
+
+function saveDepense() {
+  var libelle = document.getElementById('dep-libelle').value.trim();
+  var montant = parseFloat(document.getElementById('dep-montant').value);
+  if (!libelle || isNaN(montant)) { alert('Libellé et montant obligatoires.'); return; }
+  var payload = {
+    libelle: libelle, montant: montant,
+    categorie: document.getElementById('dep-categorie').value,
+    date_depense: document.getElementById('dep-date').value,
+    notes: document.getElementById('dep-notes').value
+  };
+  var url = _depEditId ? 'api/depenses/' + _depEditId : 'api/depenses';
+  fetch(url, { method: _depEditId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+    .then(function(){ closeModal(); location.reload(); });
+}
+
+function supprimerDepense(id) {
+  if (!confirm('Supprimer cette dépense ?')) return;
+  fetch('api/depenses/' + id, { method: 'DELETE' }).then(function(){ location.reload(); });
+}
+
+function filtrerCat(cat) {
+  window.location.href = '{{ url_for("depenses.depenses") }}?categorie=' + cat;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

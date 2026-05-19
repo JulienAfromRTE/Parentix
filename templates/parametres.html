@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">⚙️ Paramètres</h1>
+    <p class="page-subtitle">Gérez les classes et les parents de l'association</p>
+  </div>
+  <!-- Sélecteur d'année scolaire -->
+  <form method="get" style="display:flex;align-items:center;gap:8px;">
+    <select name="annee" onchange="this.form.submit()" style="border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:0.85rem;background:var(--surface);">
+      {% for a in annees %}
+      <option value="{{ a }}" {% if a == annee %}selected{% endif %}>{{ a }}</option>
+      {% endfor %}
+    </select>
+    <button type="button" onclick="nouvelleAnnee()" class="btn btn-secondary btn-sm">+ Nouvelle année</button>
+  </form>
+</div>
+
+<div class="two-col" style="align-items:start;">
+
+  <!-- Classes -->
+  <div>
+    <div class="card">
+      <div class="card-header" style="margin-bottom:14px;">
+        <span class="card-title">🏫 Classes</span>
+        <button onclick="ouvrirFormClasse()" class="btn btn-primary btn-sm">+ Ajouter</button>
+      </div>
+      {% if classes %}
+      {% for c in classes %}
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">
+        <div style="flex:1;min-width:0;">
+          <span style="font-weight:600;font-size:0.9rem;">{{ c.nom }}</span>
+          {% if c.niveau %}<span style="font-size:0.75rem;color:var(--text-muted);margin-left:6px;">{{ c.niveau }}</span>{% endif %}
+          <span style="font-size:0.75rem;color:var(--text-muted);margin-left:6px;">· {{ c.nb_parents }} parent(s)</span>
+        </div>
+        <button onclick="editerClasse(this)" data-classe='{{ c|tojson }}' class="btn btn-secondary btn-sm">✏️</button>
+        <button onclick="supprimerClasse({{ c.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
+      </div>
+      {% endfor %}
+      {% else %}
+      <p class="empty-msg">Aucune classe créée</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Parents -->
+  <div>
+    <div class="card">
+      <div class="card-header" style="margin-bottom:14px;">
+        <span class="card-title">👨‍👩‍👧‍👦 Parents ({{ parents|length }})</span>
+        <button onclick="ouvrirFormParent()" class="btn btn-primary btn-sm">+ Ajouter</button>
+      </div>
+
+      {% if parents %}
+      <!-- Recherche rapide -->
+      <input type="text" id="search-parents" placeholder="Rechercher un parent…" oninput="filtrerParents(this.value)"
+             style="margin-bottom:10px;">
+
+      <div id="parents-list">
+      {% for p in parents %}
+      <div class="parent-row" style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);" data-nom="{{ p.nom }} {{ p.prenom }}">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:0.9rem;">{{ p.prenom }} {{ p.nom }}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">
+            {% if p.classe_nom %}🏫 {{ p.classe_nom }}{% endif %}
+            {% if p.email %} · ✉️ {{ p.email }}{% endif %}
+            {% if p.telephone %} · 📱 {{ p.telephone }}{% endif %}
+          </div>
+        </div>
+        <button onclick="editerParent(this)" data-parent='{{ p|tojson }}' class="btn btn-secondary btn-sm">✏️</button>
+        <button onclick="supprimerParent({{ p.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
+      </div>
+      {% endfor %}
+      </div>
+      {% else %}
+      <p class="empty-msg">Aucun parent enregistré</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var _classeEditId = null;
+var _parentEditId = null;
+var _annee = {{ annee | tojson }};
+var _classes = {{ classes | tojson }};
+
+function filtrerParents(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.parent-row').forEach(function(row) {
+    row.style.display = row.getAttribute('data-nom').toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function nouvelleAnnee() {
+  var annee = prompt('Nouvelle année scolaire (ex: 2026-2027) :');
+  if (annee) window.location.href = '{{ url_for("parametres.parametres") }}?annee=' + encodeURIComponent(annee);
+}
+
+/* CLASSES */
+function ouvrirFormClasse() {
+  _classeEditId = null;
+  openModal('Nouvelle classe', _formClasseHtml({nom:'', niveau:''}));
+}
+
+function editerClasse(btn) {
+  var data = JSON.parse(btn.getAttribute('data-classe'));
+  _classeEditId = data.id;
+  openModal('Modifier la classe', _formClasseHtml(data));
+}
+
+function _formClasseHtml(d) {
+  return '<div class="form-grid">' +
+    '<div class="form-group"><label>Nom *</label><input type="text" id="cl-nom" value="'+escHtml(d.nom||'')+'" placeholder="Ex : CM2-A" required></div>' +
+    '<div class="form-group"><label>Niveau</label><input type="text" id="cl-niveau" value="'+escHtml(d.niveau||'')+'" placeholder="Ex : CM2"></div>' +
+    '</div><div class="form-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+    '<button type="button" class="btn btn-primary" onclick="saveClasse()">Enregistrer</button></div>';
+}
+
+function saveClasse() {
+  var nom = document.getElementById('cl-nom').value.trim();
+  if (!nom) { alert('Le nom est obligatoire.'); return; }
+  var payload = { nom: nom, niveau: document.getElementById('cl-niveau').value, annee_scolaire: _annee };
+  var url = _classeEditId ? 'api/parametres/classes/' + _classeEditId : 'api/parametres/classes';
+  fetch(url, { method: _classeEditId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+    .then(function(){ closeModal(); location.reload(); });
+}
+
+function supprimerClasse(id) {
+  if (!confirm('Supprimer cette classe ? Les parents associés seront dissociés.')) return;
+  fetch('api/parametres/classes/' + id, { method: 'DELETE' }).then(function(){ location.reload(); });
+}
+
+/* PARENTS */
+function ouvrirFormParent() {
+  _parentEditId = null;
+  openModal('Nouveau parent', _formParentHtml({prenom:'', nom:'', email:'', telephone:'', classe_id:'', notes:''}));
+}
+
+function editerParent(btn) {
+  var data = JSON.parse(btn.getAttribute('data-parent'));
+  _parentEditId = data.id;
+  openModal('Modifier le parent', _formParentHtml(data));
+}
+
+function _formParentHtml(d) {
+  var classeOpts = '<option value="">— Aucune classe —</option>' +
+    _classes.map(function(c){ return '<option value="'+c.id+'"'+(d.classe_id==c.id?' selected':'')+'>'+escHtml(c.nom)+'</option>'; }).join('');
+  return '<div class="form-grid">' +
+    '<div class="form-group"><label>Prénom *</label><input type="text" id="par-prenom" value="'+escHtml(d.prenom||'')+'" required></div>' +
+    '<div class="form-group"><label>Nom *</label><input type="text" id="par-nom" value="'+escHtml(d.nom||'')+'" required></div>' +
+    '<div class="form-group"><label>Email</label><input type="email" id="par-email" value="'+escHtml(d.email||'')+'"></div>' +
+    '<div class="form-group"><label>Téléphone</label><input type="tel" id="par-tel" value="'+escHtml(d.telephone||'')+'"></div>' +
+    '<div class="form-group"><label>Classe</label><select id="par-classe">'+classeOpts+'</select></div>' +
+    '<div class="form-group form-full"><label>Notes</label><textarea id="par-notes" rows="2">'+escHtml(d.notes||'')+'</textarea></div>' +
+    '</div><div class="form-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+    '<button type="button" class="btn btn-primary" onclick="saveParent()">Enregistrer</button></div>';
+}
+
+function saveParent() {
+  var prenom = document.getElementById('par-prenom').value.trim();
+  var nom = document.getElementById('par-nom').value.trim();
+  if (!prenom || !nom) { alert('Prénom et nom obligatoires.'); return; }
+  var classeVal = document.getElementById('par-classe').value;
+  var payload = {
+    prenom: prenom, nom: nom,
+    email: document.getElementById('par-email').value,
+    telephone: document.getElementById('par-tel').value,
+    classe_id: classeVal ? parseInt(classeVal) : null,
+    annee_scolaire: _annee,
+    notes: document.getElementById('par-notes').value
+  };
+  var url = _parentEditId ? 'api/parametres/parents/' + _parentEditId : 'api/parametres/parents';
+  fetch(url, { method: _parentEditId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+    .then(function(){ closeModal(); location.reload(); });
+}
+
+function supprimerParent(id) {
+  if (!confirm('Supprimer ce parent ?')) return;
+  fetch('api/parametres/parents/' + id, { method: 'DELETE' }).then(function(){ location.reload(); });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

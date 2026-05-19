@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">📅 {{ evt.titre }}</h1>
+    <p class="page-subtitle">
+      {% if evt.lieu %}📍 {{ evt.lieu }} · {% endif %}
+      <span class="badge badge-evt-{{ evt.statut }}">{{ evt.statut.replace('_', ' ') }}</span>
+    </p>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="{{ url_for('evenements.evenements') }}" class="btn btn-secondary btn-sm">← Retour</a>
+    <button onclick="ouvrirFormCreneau()" class="btn btn-secondary btn-sm">+ Créneau</button>
+  </div>
+</div>
+
+{% if evt.description %}
+<div class="card" style="margin-bottom:16px;padding:14px 16px;">
+  <p style="margin:0;color:var(--text-muted);font-size:0.9rem;">{{ evt.description }}</p>
+</div>
+{% endif %}
+
+<!-- Formulaire de disponibilité -->
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-header" style="margin-bottom:16px;">
+    <span class="card-title">✋ Indiquer mes disponibilités</span>
+  </div>
+  {% if creneaux %}
+  <div style="margin-bottom:12px;">
+    <label style="font-weight:600;font-size:0.85rem;">Votre prénom et nom</label>
+    <input type="text" id="dispo-nom" placeholder="Ex : Marie Dupont" style="margin-top:6px;max-width:280px;">
+  </div>
+  <div style="margin-bottom:16px;">
+    <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:8px;">Créneaux où vous êtes disponible :</label>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      {% for c in creneaux %}
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);">
+        <input type="checkbox" class="creneau-check" data-cid="{{ c.id }}" style="width:auto;accent-color:var(--primary);">
+        <span style="font-weight:600;">{{ c.date_heure[:16].replace('T', ' ') }}</span>
+        <span style="margin-left:auto;font-size:0.78rem;color:var(--text-muted);">{{ c.dispos|length }} disponible(s)</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  <button class="btn btn-primary" onclick="enregistrerDispos({{ evt.id }})">Enregistrer mes disponibilités</button>
+  {% else %}
+  <p class="empty-msg">Aucun créneau défini. Ajoutez des créneaux avec le bouton ci-dessus.</p>
+  {% endif %}
+</div>
+
+<!-- Grille des disponibilités -->
+{% if creneaux and all_noms %}
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-header" style="margin-bottom:16px;">
+    <span class="card-title">📊 Récapitulatif des disponibilités</span>
+  </div>
+  <div class="table-wrapper">
+  <table style="min-width:400px;">
+    <thead>
+      <tr>
+        <th style="min-width:140px;">Participant</th>
+        {% for c in creneaux %}
+        <th style="text-align:center;font-size:0.75rem;min-width:90px;">
+          {{ c.date_heure[:16].replace('T', ' ') }}
+          <div style="font-size:0.7rem;color:var(--text-muted);font-weight:400;">
+            {{ c.dispos|length }} dispo(s)
+          </div>
+        </th>
+        {% endfor %}
+        <th style="width:50px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for nom in all_noms %}
+    <tr>
+      <td style="font-weight:600;font-size:0.88rem;">{{ nom }}</td>
+      {% for c in creneaux %}
+      <td style="text-align:center;font-size:1.1rem;">
+        {% if nom in c.dispos %}✅{% else %}<span style="color:#e2e8f0;">—</span>{% endif %}
+      </td>
+      {% endfor %}
+      <td>
+        <button onclick="supprimerParticipant('{{ nom|replace("'", "\\'")|e }}', {{ evt.id }})"
+                class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;font-size:0.7rem;">✕</button>
+      </td>
+    </tr>
+    {% endfor %}
+    <!-- Ligne totaux -->
+    <tr style="background:var(--bg);font-weight:700;">
+      <td style="font-size:0.8rem;color:var(--text-muted);">TOTAL disponibles</td>
+      {% for c in creneaux %}
+      <td style="text-align:center;color:var(--primary);font-size:0.9rem;">{{ c.dispos|length }}</td>
+      {% endfor %}
+      <td></td>
+    </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+{% elif creneaux %}
+<div class="card" style="text-align:center;padding:28px 20px;margin-bottom:20px;">
+  <p class="empty-msg">Personne n'a encore répondu. Partagez le lien de cette page !</p>
+</div>
+{% endif %}
+
+<!-- Gestion des créneaux -->
+<div class="card">
+  <div class="card-header" style="margin-bottom:12px;">
+    <span class="card-title">🗓️ Créneaux proposés</span>
+    <button onclick="ouvrirFormCreneau()" class="btn btn-secondary btn-sm">+ Ajouter</button>
+  </div>
+  {% if creneaux %}
+  {% for c in creneaux %}
+  <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">
+    <span style="flex:1;font-size:0.9rem;">🕐 {{ c.date_heure[:16].replace('T', ' ') }}</span>
+    <span style="font-size:0.78rem;color:var(--text-muted);">{{ c.dispos|length }} réponse(s)</span>
+    <button onclick="supprimerCreneau({{ c.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
+  </div>
+  {% endfor %}
+  {% else %}
+  <p class="empty-msg">Aucun créneau</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function ouvrirFormCreneau() {
+  openModal('Ajouter un créneau', '<div class="form-grid" style="grid-template-columns:1fr;">' +
+    '<div class="form-group form-full"><label>Date et heure *</label>' +
+    '<input type="datetime-local" id="cr-date" required></div>' +
+    '</div><div class="form-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+    '<button type="button" class="btn btn-primary" onclick="saveCreneau()">Ajouter</button></div>');
+}
+
+function saveCreneau() {
+  var dh = document.getElementById('cr-date').value;
+  if (!dh) { alert('Date et heure obligatoires.'); return; }
+  fetch('../api/evenements/{{ evt.id }}/creneaux', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({date_heure: dh})
+  }).then(function(){ closeModal(); location.reload(); });
+}
+
+function supprimerCreneau(cid) {
+  if (!confirm('Supprimer ce créneau et ses réponses ?')) return;
+  fetch('../api/evenements/creneaux/' + cid, { method: 'DELETE' }).then(function(){ location.reload(); });
+}
+
+function enregistrerDispos(eid) {
+  var nom = (document.getElementById('dispo-nom').value || '').trim();
+  if (!nom) { alert('Veuillez saisir votre prénom et nom.'); return; }
+  var cids = [];
+  document.querySelectorAll('.creneau-check:checked').forEach(function(cb) {
+    cids.push(parseInt(cb.getAttribute('data-cid')));
+  });
+  fetch('../api/evenements/' + eid + '/disponibilites', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({nom: nom, creneau_ids: cids})
+  }).then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data.ok) {
+        document.getElementById('dispo-nom').value = '';
+        document.querySelectorAll('.creneau-check').forEach(function(cb){ cb.checked = false; });
+        location.reload();
+      } else {
+        alert(data.error || 'Erreur');
+      }
+    });
+}
+
+function supprimerParticipant(nom, eid) {
+  if (!confirm('Supprimer toutes les réponses de "' + nom + '" ?')) return;
+  fetch('../api/evenements/' + eid + '/disponibilites', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({nom: nom, creneau_ids: []})
+  }).then(function(){ location.reload(); });
+}
+</script>
+{% endblock %}

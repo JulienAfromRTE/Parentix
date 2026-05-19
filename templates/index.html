@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🏫 Tableau de bord</h1>
+    <p class="page-subtitle">Bienvenue sur Parentix — votre espace FCPE</p>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-icon">✅</div>
+    <div class="kpi-content">
+      <div class="kpi-value">{{ nb_taches }}</div>
+      <div class="kpi-label">Tâches en cours</div>
+      <div class="kpi-sub">à traiter</div>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">📅</div>
+    <div class="kpi-content">
+      <div class="kpi-value">{{ nb_evenements }}</div>
+      <div class="kpi-label">Événements actifs</div>
+      <div class="kpi-sub">en planification</div>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">👨‍👩‍👧‍👦</div>
+    <div class="kpi-content">
+      <div class="kpi-value">{{ nb_parents }}</div>
+      <div class="kpi-label">Parents enregistrés</div>
+      <div class="kpi-sub">dans l'annuaire</div>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">{% if solde >= 0 %}📈{% else %}📉{% endif %}</div>
+    <div class="kpi-content">
+      <div class="kpi-value" style="color:{% if solde >= 0 %}#16a34a{% else %}#dc2626{% endif %};">{% if solde >= 0 %}+{% endif %}{{ "{:,.0f}".format(solde).replace(',', ' ') }} €</div>
+      <div class="kpi-label">Solde asso</div>
+      <div class="kpi-sub">recettes − dépenses</div>
+    </div>
+  </div>
+</div>
+
+<!-- Situation financière -->
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-header" style="margin-bottom:16px;">
+    <span class="card-title">💹 Situation financière</span>
+    <div style="display:flex;gap:8px;">
+      <a href="{{ url_for('recettes.recettes') }}" class="btn btn-secondary btn-sm">Recettes</a>
+      <a href="{{ url_for('depenses.depenses') }}" class="btn btn-secondary btn-sm">Dépenses</a>
+    </div>
+  </div>
+  <div class="finstat-grid">
+    <div class="finstat-card" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+      <div class="finstat-label" style="color:#16a34a;">💰 RECETTES</div>
+      <div class="finstat-amount" style="color:#16a34a;">{{ "{:,.0f}".format(total_recettes).replace(',', ' ') }} €</div>
+      <div class="finstat-sub" style="color:#4ade80;">total encaissé</div>
+    </div>
+    <div class="finstat-card" style="background:#fff7ed;border:1px solid #fed7aa;">
+      <div class="finstat-label" style="color:#ea580c;">💸 DÉPENSES</div>
+      <div class="finstat-amount" style="color:#ea580c;">{{ "{:,.0f}".format(total_depenses).replace(',', ' ') }} €</div>
+      <div class="finstat-sub" style="color:#fb923c;">total dépensé</div>
+    </div>
+    <div class="finstat-card" style="background:{% if solde >= 0 %}#f0fdf4;border:1px solid #bbf7d0{% else %}#fef2f2;border:1px solid #fecaca{% endif %};">
+      <div class="finstat-label" style="color:{% if solde >= 0 %}#16a34a{% else %}#dc2626{% endif %};">{% if solde >= 0 %}✅ SOLDE POSITIF{% else %}⚠️ SOLDE NÉGATIF{% endif %}</div>
+      <div class="finstat-amount" style="color:{% if solde >= 0 %}#16a34a{% else %}#dc2626{% endif %};">{% if solde >= 0 %}+{% endif %}{{ "{:,.0f}".format(solde).replace(',', ' ') }} €</div>
+      <div class="finstat-sub" style="color:{% if solde >= 0 %}#4ade80{% else %}#f87171{% endif %};">recettes − dépenses</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tâches à venir -->
+{% if taches_a_venir %}
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-header" style="margin-bottom:14px;">
+    <span class="card-title">✅ Tâches en cours</span>
+    <a href="{{ url_for('taches.taches') }}" class="btn btn-secondary btn-sm">Voir tout</a>
+  </div>
+  {% for t in taches_a_venir %}
+  <div style="padding:9px 0;border-bottom:1px solid var(--border);">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;">
+      <span style="font-weight:600;font-size:0.88rem;">{{ t.titre }}</span>
+      {% if t.date_echeance %}
+      <span style="font-size:0.7rem;padding:2px 7px;border-radius:4px;font-weight:600;white-space:nowrap;
+                   background:{% if t.date_echeance < today and t.statut != 'clos' %}#fee2e2{% elif t.date_echeance == today and t.statut != 'clos' %}#fff7ed{% else %}#eff6ff{% endif %};
+                   color:{% if t.date_echeance < today and t.statut != 'clos' %}#dc2626{% elif t.date_echeance == today and t.statut != 'clos' %}#ea580c{% else %}#1e40af{% endif %};">
+        Échéance : {{ t.date_echeance }}{% if t.date_echeance < today and t.statut != 'clos' %} · En retard{% endif %}
+      </span>
+      {% endif %}
+      {% if t.important %}
+      <span style="background:#fef3c7;color:#d97706;font-size:0.68rem;padding:2px 6px;border-radius:4px;font-weight:700;">IMPORTANT</span>
+      {% endif %}
+      <span style="margin-left:auto;font-size:0.7rem;padding:2px 8px;border-radius:12px;white-space:nowrap;flex-shrink:0;
+                   background:{% if t.statut=='en_cours' %}#dbeafe{% else %}#f1f5f9{% endif %};
+                   color:{% if t.statut=='en_cours' %}#1e40af{% else %}#475569{% endif %};font-weight:600;">
+        {{ 'En cours' if t.statut=='en_cours' else 'Nouveau' }}
+      </span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Timeline événements -->
+{% if prochains_evenements %}
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-header" style="margin-bottom:16px;">
+    <span class="card-title">📅 Prochains événements</span>
+    <a href="{{ url_for('evenements.evenements') }}" class="btn btn-secondary btn-sm">Voir tout</a>
+  </div>
+  <div class="timeline">
+    {% for e in prochains_evenements %}
+    <div class="timeline-item">
+      <div class="timeline-dot {% if e.statut == 'confirme' %}timeline-dot-green{% elif e.statut == 'annule' %}timeline-dot-red{% else %}timeline-dot-blue{% endif %}"></div>
+      <div class="timeline-content">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:0;">
+            <a href="{{ url_for('evenements.evenement_detail', eid=e.id) }}" style="font-weight:700;font-size:0.95rem;color:var(--primary);text-decoration:none;">{{ e.titre }}</a>
+            {% if e.lieu %}<div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">📍 {{ e.lieu }}</div>{% endif %}
+            {% if e.prochain_creneau %}
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">
+              🕐 {{ e.prochain_creneau[:10] if e.prochain_creneau else '—' }}
+              {% if e.nb_creneaux > 1 %} + {{ e.nb_creneaux - 1 }} autre(s) créneau(x){% endif %}
+            </div>
+            {% endif %}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+            <span class="badge badge-evt-{{ e.statut }}">{{ e.statut.replace('_', ' ') }}</span>
+            {% if e.nb_reponses %}
+            <span style="font-size:0.72rem;color:var(--text-muted);">{{ e.nb_reponses }} réponse(s)</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Dernières opérations financières -->
+<div class="two-col">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">💰 Dernières recettes</span>
+      <a href="{{ url_for('recettes.recettes') }}" class="btn btn-secondary btn-sm">Voir tout</a>
+    </div>
+    {% if recettes_recentes %}
+    <div style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Libellé</th><th>Montant</th><th class="hide-mobile">Catégorie</th></tr></thead>
+      <tbody>
+      {% for r in recettes_recentes %}
+      <tr>
+        <td><strong>{{ r.libelle }}</strong><br><small class="text-muted">{{ r.date_recette or '' }}</small></td>
+        <td><strong style="color:#16a34a">+{{ "{:,.2f}".format(r.montant).replace(',', ' ') }} €</strong></td>
+        <td class="hide-mobile"><span class="badge badge-cat-{{ r.categorie }}">{{ r.categorie }}</span></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="empty-msg">Aucune recette enregistrée</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">💸 Dernières dépenses</span>
+      <a href="{{ url_for('depenses.depenses') }}" class="btn btn-secondary btn-sm">Voir tout</a>
+    </div>
+    {% if depenses_recentes %}
+    <div style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Libellé</th><th>Montant</th><th class="hide-mobile">Catégorie</th></tr></thead>
+      <tbody>
+      {% for d in depenses_recentes %}
+      <tr>
+        <td><strong>{{ d.libelle }}</strong><br><small class="text-muted">{{ d.date_depense or '' }}</small></td>
+        <td style="white-space:nowrap;"><strong style="color:#ea580c">{{ "{:,.2f}".format(d.montant).replace(',', ' ') }} €</strong></td>
+        <td class="hide-mobile"><span class="badge badge-cat-{{ d.categorie }}">{{ d.categorie }}</span></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="empty-msg">Aucune dépense enregistrée</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

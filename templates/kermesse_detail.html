@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🎡 {{ edition.nom }}</h1>
+    <p class="page-subtitle">
+      {% if edition.date_kermesse %}📅 {{ edition.date_kermesse }} · {% endif %}
+      {{ stands|length }} stand(s) ·
+      {{ stands|sum(attribute='nb_inscrits') }} inscrit(s) au total
+    </p>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="{{ url_for('kermesse.kermesse') }}" class="btn btn-secondary btn-sm">← Retour</a>
+    <button onclick="ouvrirFormStand()" class="btn btn-primary btn-sm">+ Nouveau stand</button>
+  </div>
+</div>
+
+{% if not stands %}
+<div class="card" style="text-align:center;padding:40px 20px;">
+  <div style="font-size:2.5rem;margin-bottom:12px;">🎪</div>
+  <p class="empty-msg" style="margin:0 0 16px;">Aucun stand créé pour cette kermesse</p>
+  <button class="btn btn-primary" onclick="ouvrirFormStand()">Créer le premier stand</button>
+</div>
+{% else %}
+
+<!-- Vue globale : inscription rapide -->
+<div class="card" style="margin-bottom:20px;padding:16px;">
+  <div style="font-size:0.85rem;font-weight:700;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em;">S'inscrire à un stand</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+    <div style="flex:1;min-width:200px;">
+      <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">Votre prénom et nom</label>
+      <input type="text" id="insc-nom" placeholder="Marie Dupont">
+    </div>
+    <div style="flex:1;min-width:160px;">
+      <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">Créneau</label>
+      <select id="insc-creneau">
+        <option value="matin">Matin</option>
+        <option value="apres-midi">Après-midi</option>
+        <option value="journee" selected>Journée entière</option>
+      </select>
+    </div>
+    <div style="flex:2;min-width:200px;">
+      <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">Stand</label>
+      <select id="insc-stand">
+        {% for s in stands %}
+        <option value="{{ s.id }}" {% if s.places_restantes == 0 %}disabled{% endif %}>
+          {{ s.nom }} ({{ s.nb_inscrits }}/{{ s.capacite }}){% if s.places_restantes == 0 %} — COMPLET{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="sInscrire()">S'inscrire</button>
+  </div>
+</div>
+
+<!-- Grille des stands -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
+  {% for s in stands %}
+  <div class="card" id="stand-{{ s.id }}" style="padding:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+      <div>
+        <div style="font-weight:700;font-size:0.95rem;">{{ s.nom }}</div>
+        {% if s.description %}<div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">{{ s.description }}</div>{% endif %}
+      </div>
+      <div style="display:flex;gap:4px;flex-shrink:0;">
+        <button onclick="editerStand(this)" data-stand='{{ s|tojson }}' class="btn btn-secondary btn-sm">✏️</button>
+        <button onclick="supprimerStand({{ s.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
+      </div>
+    </div>
+
+    <!-- Barre de progression -->
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-muted);margin-bottom:4px;">
+        <span>{{ s.nb_inscrits }}/{{ s.capacite }} bénévoles</span>
+        <span style="font-weight:700;color:{% if s.places_restantes == 0 %}#dc2626{% elif s.places_restantes <= 1 %}#f59e0b{% else %}#16a34a{% endif %};">
+          {% if s.places_restantes == 0 %}COMPLET{% else %}{{ s.places_restantes }} place(s){% endif %}
+        </span>
+      </div>
+      <div style="height:6px;background:#e2e8f0;border-radius:999px;overflow:hidden;">
+        <div style="height:100%;width:{{ [s.nb_inscrits / s.capacite * 100, 100]|min|round }}%;
+                    background:{% if s.places_restantes == 0 %}#dc2626{% elif s.places_restantes <= 1 %}#f59e0b{% else %}#1e40af{% endif %};
+                    border-radius:999px;transition:width 0.4s;"></div>
+      </div>
+    </div>
+
+    <!-- Liste des inscrits -->
+    {% if s.inscrits %}
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      {% for i in s.inscrits %}
+      <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border-radius:6px;font-size:0.82rem;">
+        <span style="flex:1;">👤 <strong>{{ i.nom }}</strong></span>
+        <span style="font-size:0.7rem;color:var(--text-muted);">{{ i.creneau }}</span>
+        <button onclick="supprimerInscription({{ i.id }})" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:0.8rem;padding:0 2px;">✕</button>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="font-size:0.78rem;color:var(--text-muted);font-style:italic;text-align:center;padding:8px 0;margin:0;">Aucun inscrit</p>
+    {% endif %}
+
+    <!-- Inscription rapide depuis ce stand -->
+    {% if s.places_restantes > 0 %}
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+      <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="inscriptionRapide({{ s.id }}, '{{ s.nom|replace("'","\\'")|e }}')">+ M'inscrire ici</button>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+var _standEditId = null;
+
+function ouvrirFormStand() {
+  _standEditId = null;
+  openModal('Nouveau stand', _formStandHtml({nom:'', description:'', capacite:2}));
+}
+
+function editerStand(btn) {
+  var data = JSON.parse(btn.getAttribute('data-stand'));
+  _standEditId = data.id;
+  openModal('Modifier le stand', _formStandHtml(data));
+}
+
+function _formStandHtml(d) {
+  return '<div class="form-grid">' +
+    '<div class="form-group form-full"><label>Nom du stand *</label><input type="text" id="st-nom" value="'+escHtml(d.nom||'')+'" placeholder="Ex : Pêche aux canards" required></div>' +
+    '<div class="form-group"><label>Capacité (nb bénévoles)</label><input type="number" id="st-capacite" value="'+(d.capacite||2)+'" min="1" max="20"></div>' +
+    '<div class="form-group form-full"><label>Description</label><input type="text" id="st-desc" value="'+escHtml(d.description||'')+'" placeholder="Description courte"></div>' +
+    '</div><div class="form-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+    '<button type="button" class="btn btn-primary" onclick="saveStand()">Enregistrer</button></div>';
+}
+
+function saveStand() {
+  var nom = document.getElementById('st-nom').value.trim();
+  if (!nom) { alert('Le nom est obligatoire.'); return; }
+  var payload = {
+    nom: nom,
+    description: document.getElementById('st-desc').value,
+    capacite: parseInt(document.getElementById('st-capacite').value) || 2
+  };
+  var eid = {{ edition.id }};
+  var url = _standEditId ? 'api/kermesse/stands/' + _standEditId : 'api/kermesse/' + eid + '/stands';
+  fetch('../' + url, { method: _standEditId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+    .then(function(){ closeModal(); location.reload(); });
+}
+
+function supprimerStand(sid) {
+  if (!confirm('Supprimer ce stand et ses inscriptions ?')) return;
+  fetch('../api/kermesse/stands/' + sid, { method: 'DELETE' }).then(function(){ location.reload(); });
+}
+
+function sInscrire() {
+  var nom = (document.getElementById('insc-nom').value || '').trim();
+  if (!nom) { alert('Votre nom est obligatoire.'); return; }
+  var sid = parseInt(document.getElementById('insc-stand').value);
+  var creneau = document.getElementById('insc-creneau').value;
+  _doInscription(sid, nom, creneau);
+}
+
+function inscriptionRapide(sid, nomStand) {
+  var nom = prompt('Votre prénom et nom :');
+  if (!nom || !nom.trim()) return;
+  _doInscription(sid, nom.trim(), 'journee');
+}
+
+function _doInscription(sid, nom, creneau) {
+  fetch('../api/kermesse/stands/' + sid + '/inscriptions', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({nom: nom, creneau: creneau})
+  }).then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data.ok) { location.reload(); }
+      else { alert(data.error || 'Erreur lors de l\'inscription'); }
+    });
+}
+
+function supprimerInscription(iid) {
+  if (!confirm('Retirer cette inscription ?')) return;
+  fetch('../api/kermesse/inscriptions/' + iid, { method: 'DELETE' })
+    .then(function(){ location.reload(); });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

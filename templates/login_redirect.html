@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Connexion…</title>
+  <script>
+    var target = {{ next_url | tojson }};
+    window.location.href = target && target !== '' ? target : '/';
+  </script>
+</head>
+<body></body>
+</html>
