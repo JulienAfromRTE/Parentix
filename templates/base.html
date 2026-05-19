@@ -27,6 +27,7 @@
         <a href="{{ url_for('recettes.recettes') }}" class="nav-link {% if request.endpoint=='recettes.recettes' %}active{% endif %}">💰 Recettes</a>
         <a href="{{ url_for('evenements.evenements') }}" class="nav-link {% if request.endpoint in ['evenements.evenements','evenements.evenement_detail'] %}active{% endif %}">📅 Événements</a>
         <a href="{{ url_for('kermesse.kermesse') }}" class="nav-link {% if request.endpoint in ['kermesse.kermesse','kermesse.kermesse_detail'] %}active{% endif %}">🎡 Kermesse</a>
+        <a href="{{ url_for('votes.votes') }}" class="nav-link {% if request.endpoint in ['votes.votes','votes.vote_detail'] %}active{% endif %}">🗳️ Votes</a>
         <a href="{{ url_for('parametres.parametres') }}" class="nav-link {% if request.endpoint=='parametres.parametres' %}active{% endif %}">⚙️ Paramètres</a>
       </nav>
       <span class="version">{{ APP_RELEASE }}</span>
@@ -49,6 +50,7 @@
         <a href="{{ url_for('recettes.recettes') }}" class="burger-link {% if request.endpoint=='recettes.recettes' %}active{% endif %}"><span>💰</span> Recettes</a>
         <a href="{{ url_for('evenements.evenements') }}" class="burger-link {% if request.endpoint in ['evenements.evenements','evenements.evenement_detail'] %}active{% endif %}"><span>📅</span> Événements</a>
         <a href="{{ url_for('kermesse.kermesse') }}" class="burger-link {% if request.endpoint in ['kermesse.kermesse','kermesse.kermesse_detail'] %}active{% endif %}"><span>🎡</span> Kermesse</a>
+        <a href="{{ url_for('votes.votes') }}" class="burger-link {% if request.endpoint in ['votes.votes','votes.vote_detail'] %}active{% endif %}"><span>🗳️</span> Votes</a>
         <a href="{{ url_for('parametres.parametres') }}" class="burger-link {% if request.endpoint=='parametres.parametres' %}active{% endif %}"><span>⚙️</span> Paramètres</a>
       </div>
       <a href="{{ url_for('logout') }}" class="burger-logout">⎋ Déconnexion</a>
@@ -90,6 +92,9 @@
       </a>
       <a href="{{ url_for('kermesse.kermesse') }}" class="bottom-nav-link {% if request.endpoint in ['kermesse.kermesse','kermesse.kermesse_detail'] %}active{% endif %}">
         <span class="nav-emoji">🎡</span><span>Kermesse</span>
+      </a>
+      <a href="{{ url_for('votes.votes') }}" class="bottom-nav-link {% if request.endpoint in ['votes.votes','votes.vote_detail'] %}active{% endif %}">
+        <span class="nav-emoji">🗳️</span><span>Votes</span>
       </a>
       <a href="{{ url_for('parametres.parametres') }}" class="bottom-nav-link {% if request.endpoint=='parametres.parametres' %}active{% endif %}">
         <span class="nav-emoji">⚙️</span><span>Paramètres</span>

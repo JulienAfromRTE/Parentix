@@ -98,7 +98,17 @@
           {% endif %}
         </div>
         {% if t.contenu %}
-        <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.5;margin-bottom:8px;max-height:9em;overflow:hidden;">{{ t.contenu | safe }}</div>
+        <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.5;margin-bottom:6px;max-height:9em;overflow:hidden;">{{ t.contenu | safe }}</div>
+        {% endif %}
+        {% if t.porteur_nom or t.contributeurs_noms %}
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:4px;">
+          {% if t.porteur_nom %}
+          <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.72rem;padding:2px 8px;border-radius:12px;font-weight:600;background:#dbeafe;color:#1e40af;white-space:nowrap;">👤 {{ t.porteur_nom }}</span>
+          {% endif %}
+          {% for c in t.contributeurs_noms %}
+          <span style="font-size:0.7rem;padding:2px 7px;border-radius:12px;background:#f1f5f9;color:#475569;font-weight:500;white-space:nowrap;">{{ c }}</span>
+          {% endfor %}
+        </div>
         {% endif %}
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end;">
@@ -137,10 +147,11 @@
 <script>
 var _tacheEditId = null;
 var _quillEditor = null;
+var _parents = {{ parents | tojson }};
 
 function ouvrirFormTache() {
   _tacheEditId = null;
-  openModal('Nouvelle tâche', _formTacheHtml({titre:'', contenu:'', statut:'nouveau', important:0, date_echeance:''}));
+  openModal('Nouvelle tâche', _formTacheHtml({titre:'', contenu:'', statut:'nouveau', important:0, date_echeance:'', porteur_id:null, contributeurs:'[]'}));
   _initQuill('');
 }
 
@@ -161,6 +172,28 @@ function _initQuill(content) {
 }
 
 function _formTacheHtml(d) {
+  var porteurOpts = '<option value="">— Aucun porteur —</option>';
+  _parents.forEach(function(p) {
+    var sel = (d.porteur_id && d.porteur_id == p.id) ? ' selected' : '';
+    porteurOpts += '<option value="' + p.id + '"' + sel + '>' + escHtml(p.prenom + ' ' + p.nom) + '</option>';
+  });
+
+  var contribIds = [];
+  try { contribIds = JSON.parse(d.contributeurs || '[]'); } catch(e) {}
+  var contribHtml = '';
+  if (_parents.length > 0) {
+    contribHtml = '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;">';
+    _parents.forEach(function(p) {
+      var chk = contribIds.indexOf(p.id) !== -1 ? ' checked' : '';
+      contribHtml += '<label style="display:flex;align-items:center;gap:5px;font-size:0.85rem;cursor:pointer;">' +
+        '<input type="checkbox" class="tf-contrib" value="' + p.id + '"' + chk + ' style="width:auto;">' +
+        escHtml(p.prenom + ' ' + p.nom) + '</label>';
+    });
+    contribHtml += '</div>';
+  } else {
+    contribHtml = '<p style="font-size:0.8rem;color:var(--text-muted);margin:4px 0 0;">Aucun parent dans les paramètres.</p>';
+  }
+
   return '<div class="form-grid" style="grid-template-columns:1fr;">' +
     '<div class="form-group form-full"><label>Titre <span style="color:#dc2626">*</span></label>' +
     '<input type="text" id="tf-titre" value="' + escHtml(d.titre||'') + '" placeholder="Titre de la tâche" required></div>' +
@@ -170,6 +203,8 @@ function _formTacheHtml(d) {
     '<option value="en_cours"' + (d.statut==='en_cours'?' selected':'') + '>En cours</option>' +
     '<option value="clos"' + (d.statut==='clos'?' selected':'') + '>Clos</option></select></div>' +
     '<div class="form-group"><label>Date d\'échéance</label><input type="date" id="tf-echeance" value="' + escHtml(d.date_echeance||'') + '"></div>' +
+    '<div class="form-group form-full"><label>Porteur</label><select id="tf-porteur">' + porteurOpts + '</select></div>' +
+    '<div class="form-group form-full"><label>Contributeurs</label>' + contribHtml + '</div>' +
     '<div class="form-group form-full" style="flex-direction:row;align-items:center;gap:10px;margin-top:4px;">' +
     '<input type="checkbox" id="tf-important" style="width:auto;"' + (d.important?' checked':'') + '>' +
     '<label for="tf-important" style="margin:0;cursor:pointer;">⭐ Marquer comme Important</label></div>' +
@@ -187,11 +222,19 @@ function saveTache() {
   if (!titre) { alert('Le titre est obligatoire.'); return; }
   var contenu = _quillEditor ? _quillEditor.root.innerHTML : '';
   if (contenu === '<p><br></p>') contenu = '';
+  var porteurEl = document.getElementById('tf-porteur');
+  var porteurId = porteurEl && porteurEl.value ? parseInt(porteurEl.value) : null;
+  var contributeurs = [];
+  document.querySelectorAll('.tf-contrib:checked').forEach(function(cb) {
+    contributeurs.push(parseInt(cb.value));
+  });
   var payload = {
     titre: titre, contenu: contenu,
     statut: document.getElementById('tf-statut').value,
     important: document.getElementById('tf-important').checked,
-    date_echeance: document.getElementById('tf-echeance').value || null
+    date_echeance: document.getElementById('tf-echeance').value || null,
+    porteur_id: porteurId,
+    contributeurs: contributeurs
   };
   var url = _tacheEditId ? 'api/taches/' + _tacheEditId : 'api/taches';
   fetch(url, { method: _tacheEditId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })

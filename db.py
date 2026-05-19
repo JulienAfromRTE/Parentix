@@ -1,4 +1,4 @@
-import sqlite3, os, logging
+import sqlite3, os, logging, secrets
 
 logger = logging.getLogger(__name__)
 
@@ -127,8 +127,52 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (classe_id) REFERENCES classes(id)
         );
+        CREATE TABLE IF NOT EXISTS votes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            titre TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            type TEXT DEFAULT 'unique',
+            statut TEXT DEFAULT 'ouvert',
+            token TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS vote_options (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vote_id INTEGER NOT NULL,
+            texte TEXT NOT NULL,
+            ordre INTEGER DEFAULT 0,
+            FOREIGN KEY (vote_id) REFERENCES votes(id)
+        );
+        CREATE TABLE IF NOT EXISTS vote_reponses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vote_id INTEGER NOT NULL,
+            option_id INTEGER NOT NULL,
+            nom TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (vote_id) REFERENCES votes(id),
+            FOREIGN KEY (option_id) REFERENCES vote_options(id)
+        );
     """)
     db.commit()
+
+    # Migrations colonnes ajoutées après v1.0
+    for _col, _def in [("porteur_id", "INTEGER"), ("contributeurs", "TEXT DEFAULT '[]'")]:
+        try:
+            db.execute(f"ALTER TABLE taches ADD COLUMN {_col} {_def}")
+            db.commit()
+        except Exception:
+            pass
+
+    try:
+        db.execute("ALTER TABLE evenements ADD COLUMN token TEXT")
+        db.commit()
+    except Exception:
+        pass
+    rows = db.execute("SELECT id FROM evenements WHERE token IS NULL").fetchall()
+    for r in rows:
+        db.execute("UPDATE evenements SET token=? WHERE id=?", (secrets.token_hex(6), r['id']))
+    if rows:
+        db.commit()
 
     # Seed catégories par défaut
     if db.execute("SELECT COUNT(*) as c FROM categories").fetchone()['c'] == 0:

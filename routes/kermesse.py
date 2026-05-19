@@ -1,5 +1,6 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for
 from db import get_db
+from datetime import date
 
 bp = Blueprint('kermesse', __name__)
 
@@ -7,6 +8,21 @@ bp = Blueprint('kermesse', __name__)
 @bp.route('/kermesse')
 def kermesse():
     db = get_db()
+    today = date.today().isoformat()
+    # Kermesse à venir la plus proche, sinon la plus récente
+    prochaine = db.execute(
+        """SELECT id FROM kermesse_editions
+           WHERE date_kermesse >= ?
+           ORDER BY date_kermesse ASC LIMIT 1""",
+        (today,)
+    ).fetchone()
+    if not prochaine:
+        prochaine = db.execute(
+            "SELECT id FROM kermesse_editions ORDER BY date_kermesse DESC, created_at DESC LIMIT 1"
+        ).fetchone()
+    if prochaine:
+        db.close()
+        return redirect(url_for('kermesse.kermesse_detail', eid=prochaine['id']))
     editions = db.execute(
         """SELECT e.*,
            (SELECT COUNT(*) FROM kermesse_stands s WHERE s.edition_id = e.id) as nb_stands,

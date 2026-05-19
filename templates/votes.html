@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🗳️ Votes &amp; Sondages</h1>
+    <p class="page-subtitle">Consultez les parents et prenez des décisions ensemble</p>
+  </div>
+  <button class="btn btn-primary" onclick="ouvrirFormVote()">+ Nouveau sondage</button>
+</div>
+
+{% if votes %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+  {% for v in votes %}
+  <div class="card" style="padding:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:1rem;margin-bottom:4px;">{{ v.titre }}</div>
+        {% if v.description %}<div style="font-size:0.78rem;color:var(--text-muted);">{{ v.description[:80] }}{% if v.description|length > 80 %}…{% endif %}</div>{% endif %}
+      </div>
+      <span style="flex-shrink:0;padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:700;
+                   background:{% if v.statut=='ouvert' %}#d1fae5{% else %}#f1f5f9{% endif %};
+                   color:{% if v.statut=='ouvert' %}#065f46{% else %}#475569{% endif %};">
+        {% if v.statut=='ouvert' %}🟢 Ouvert{% else %}🔒 Clos{% endif %}
+      </span>
+    </div>
+    <div style="display:flex;gap:12px;font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;">
+      <span>📋 {{ v.nb_options }} option(s)</span>
+      <span>👥 {{ v.nb_repondants }} réponse(s)</span>
+      <span>{% if v.type == 'multiple' %}☑️ Choix multiples{% else %}🔘 Choix unique{% endif %}</span>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <a href="{{ url_for('votes.vote_detail', vid=v.id) }}" class="btn btn-primary btn-sm" style="flex:1;justify-content:center;">📊 Résultats</a>
+      <button onclick="copierLien('{{ url_for("votes.vote_public", token=v.token, _external=True) }}')" class="btn btn-secondary btn-sm">🔗 Partager</button>
+      <button onclick="editerVote(this)" data-vote='{{ v|tojson }}' class="btn btn-secondary btn-sm">✏️</button>
+      <button onclick="supprimerVote({{ v.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:48px 20px;">
+  <div style="font-size:3rem;margin-bottom:16px;">🗳️</div>
+  <p class="empty-msg" style="margin:0 0 20px;">Aucun sondage créé</p>
+  <button class="btn btn-primary" onclick="ouvrirFormVote()">Créer le premier sondage</button>
+</div>
+{% endif %}
+
+<!-- Toast copie lien -->
+<div id="toast-lien" style="display:none;position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+     background:#1e293b;color:#fff;padding:10px 20px;border-radius:8px;font-size:0.85rem;z-index:9999;">
+  ✅ Lien copié !
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var _voteEditId = null;
+
+function ouvrirFormVote() {
+  _voteEditId = null;
+  openModal('Nouveau sondage', _formVoteHtml({titre:'', description:'', type:'unique'}, true));
+}
+
+function editerVote(btn) {
+  var data = JSON.parse(btn.getAttribute('data-vote'));
+  _voteEditId = data.id;
+  openModal('Modifier le sondage', _formVoteHtml(data, false));
+}
+
+function _formVoteHtml(d, avecOptions) {
+  var html = '<div class="form-grid">' +
+    '<div class="form-group form-full"><label>Titre *</label><input type="text" id="vote-titre" value="' + escHtml(d.titre || '') + '" required></div>' +
+    '<div class="form-group form-full"><label>Description</label><textarea id="vote-desc" rows="2">' + escHtml(d.description || '') + '</textarea></div>' +
+    '<div class="form-group"><label>Type de vote</label><select id="vote-type">' +
+    '<option value="unique"' + (d.type === 'unique' || !d.type ? ' selected' : '') + '>🔘 Choix unique</option>' +
+    '<option value="multiple"' + (d.type === 'multiple' ? ' selected' : '') + '>☑️ Choix multiples</option>' +
+    '</select></div>';
+  if (!avecOptions) {
+    html += '<div class="form-group"><label>Statut</label><select id="vote-statut">' +
+      '<option value="ouvert"' + (d.statut === 'ouvert' ? ' selected' : '') + '>🟢 Ouvert</option>' +
+      '<option value="clos"' + (d.statut === 'clos' ? ' selected' : '') + '>🔒 Clos</option>' +
+      '</select></div>';
+  }
+  html += '</div>';
+  if (avecOptions) {
+    html += '<div style="margin:12px 0 8px;"><label style="font-weight:600;font-size:0.85rem;">Options (au moins 2) *</label></div>' +
+      '<div id="vote-options-list" style="display:flex;flex-direction:column;gap:6px;">' +
+      '<div style="display:flex;gap:6px;"><input type="text" placeholder="Option 1" class="vote-opt"><button type="button" onclick="retirerOption(this)" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;flex-shrink:0;">✕</button></div>' +
+      '<div style="display:flex;gap:6px;"><input type="text" placeholder="Option 2" class="vote-opt"><button type="button" onclick="retirerOption(this)" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;flex-shrink:0;">✕</button></div>' +
+      '</div>' +
+      '<button type="button" onclick="ajouterOption()" class="btn btn-secondary btn-sm" style="margin-top:6px;">+ Ajouter une option</button>';
+  }
+  html += '<div class="form-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+    '<button type="button" class="btn btn-primary" onclick="saveVote()">Enregistrer</button></div>';
+  return html;
+}
+
+function ajouterOption() {
+  var list = document.getElementById('vote-options-list');
+  var nb = list.querySelectorAll('.vote-opt').length + 1;
+  var div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:6px;';
+  div.innerHTML = '<input type="text" placeholder="Option ' + nb + '" class="vote-opt">' +
+    '<button type="button" onclick="retirerOption(this)" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;flex-shrink:0;">✕</button>';
+  list.appendChild(div);
+}
+
+function retirerOption(btn) {
+  var list = document.getElementById('vote-options-list');
+  if (list.querySelectorAll('.vote-opt').length > 2) {
+    btn.parentElement.remove();
+  }
+}
+
+function saveVote() {
+  var titre = (document.getElementById('vote-titre').value || '').trim();
+  if (!titre) { alert('Le titre est obligatoire.'); return; }
+  var payload = {
+    titre: titre,
+    description: document.getElementById('vote-desc').value,
+    type: document.getElementById('vote-type').value
+  };
+  if (!_voteEditId) {
+    var opts = Array.from(document.querySelectorAll('.vote-opt')).map(function(i){ return i.value.trim(); }).filter(Boolean);
+    if (opts.length < 2) { alert('Ajoutez au moins 2 options.'); return; }
+    payload.options = opts;
+  } else {
+    payload.statut = document.getElementById('vote-statut').value;
+  }
+  var url = _voteEditId ? 'api/votes/' + _voteEditId : 'api/votes';
+  fetch(url, { method: _voteEditId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      closeModal();
+      if (!_voteEditId && data.id) {
+        window.location.href = 'votes/' + data.id;
+      } else {
+        location.reload();
+      }
+    });
+}
+
+function supprimerVote(id) {
+  if (!confirm('Supprimer ce sondage et toutes ses réponses ?')) return;
+  fetch('api/votes/' + id, { method: 'DELETE' }).then(function(){ location.reload(); });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

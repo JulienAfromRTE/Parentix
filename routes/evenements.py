@@ -1,11 +1,14 @@
 from flask import Blueprint, render_template, request, jsonify
+from datetime import datetime, date
 from db import get_db
+import secrets
 
 bp = Blueprint('evenements', __name__)
 
 
 @bp.route('/evenements')
 def evenements():
+    from datetime import datetime
     db = get_db()
     rows = db.execute(
         """SELECT e.*,
@@ -14,10 +17,58 @@ def evenements():
             JOIN evenement_disponibilites ed ON ed.creneau_id = ec.id
             WHERE ec.evenement_id = e.id) as nb_participants,
            (SELECT MIN(ec.date_heure) FROM evenement_creneaux ec WHERE ec.evenement_id = e.id) as prochain_creneau
-           FROM evenements e ORDER BY e.created_at DESC"""
+           FROM evenements e ORDER BY prochain_creneau ASC, e.created_at DESC"""
     ).fetchall()
+    evenements = []
+    for row in rows:
+        e = dict(row)
+        best = db.execute(
+            """SELECT ec.date_heure, COUNT(ed.id) as nb_dispos
+               FROM evenement_creneaux ec
+               LEFT JOIN evenement_disponibilites ed ON ed.creneau_id = ec.id
+               WHERE ec.evenement_id = ?
+               GROUP BY ec.id
+               ORDER BY nb_dispos DESC, ec.date_heure ASC
+               LIMIT 1""", (e['id'],)
+        ).fetchone()
+        e['date_retenue'] = best['date_heure'] if best else None
+        e['nb_dispos_max'] = best['nb_dispos'] if best else 0
+        evenements.append(e)
     db.close()
-    return render_template('evenements.html', evenements=[dict(r) for r in rows])
+
+    today_dt = datetime.now().date()
+    today = today_dt.strftime('%Y-%m-%d')
+
+    # Année scolaire : 1er sept → 30 juin
+    y = today_dt.year if today_dt.month >= 9 else today_dt.year - 1
+    sy_start = date(y, 9, 1)
+    sy_end   = date(y + 1, 6, 30)
+    span     = (sy_end - sy_start).days  # ~302 jours
+
+    def to_pct(s):
+        if not s:
+            return None
+        try:
+            d = datetime.fromisoformat(s[:10]).date()
+            return round(max(2.0, min(96.0, (d - sy_start).days / span * 100)), 1)
+        except Exception:
+            return None
+
+    # Repères mensuels sept → juin
+    _LABELS = ['sept.', 'oct.', 'nov.', 'déc.', 'janv.', 'fév.', 'mars', 'avr.', 'mai', 'juin']
+    months = []
+    for i, m in enumerate([9, 10, 11, 12, 1, 2, 3, 4, 5, 6]):
+        yr = y if m >= 9 else y + 1
+        d = date(yr, m, 1)
+        months.append({'label': _LABELS[i], 'pct': round(max(1.0, (d - sy_start).days / span * 100), 1)})
+
+    today_pct = to_pct(today)
+    for e in evenements:
+        e['tl_pct'] = to_pct(e.get('prochain_creneau'))
+
+    return render_template('evenements.html', evenements=evenements, today=today,
+        months=months, today_pct=today_pct,
+        school_label=f"{y}–{y + 1}")
 
 
 @bp.route('/evenements/<int:eid>')
@@ -53,14 +104,35 @@ def evenement_detail(eid):
         evt=dict(evt), creneaux=creneaux_data, all_noms=all_noms)
 
 
+@bp.route('/evenements/p/<token>')
+def evenement_public(token):
+    db = get_db()
+    evt = db.execute("SELECT * FROM evenements WHERE token=?", (token,)).fetchone()
+    if not evt:
+        db.close()
+        return "Evenement non trouve", 404
+    creneaux = db.execute(
+        "SELECT * FROM evenement_creneaux WHERE evenement_id=? ORDER BY date_heure ASC", (evt['id'],)
+    ).fetchall()
+    creneaux_data = []
+    for c in creneaux:
+        nb = db.execute(
+            "SELECT COUNT(*) as c FROM evenement_disponibilites WHERE creneau_id=?", (c['id'],)
+        ).fetchone()['c']
+        creneaux_data.append({'id': c['id'], 'date_heure': c['date_heure'], 'nb_dispos': nb})
+    db.close()
+    return render_template('evenement_public.html', evt=dict(evt), creneaux=creneaux_data)
+
+
 @bp.route('/api/evenements', methods=['POST'])
 def api_add_evenement():
     data = request.json
+    token = secrets.token_hex(6)
     db = get_db()
     cur = db.execute(
-        "INSERT INTO evenements (titre, description, lieu, statut) VALUES (?,?,?,?)",
+        "INSERT INTO evenements (titre, description, lieu, statut, token) VALUES (?,?,?,?,?)",
         (data.get('titre', ''), data.get('description', ''),
-         data.get('lieu', ''), data.get('statut', 'planification'))
+         data.get('lieu', ''), data.get('statut', 'planification'), token)
     )
     eid = cur.lastrowid
     db.commit()

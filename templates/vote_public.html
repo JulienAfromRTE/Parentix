@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#1e40af">
+  <title>{{ APP_NAME }}</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body style="min-height:100vh;background:var(--bg);display:flex;flex-direction:column;">
+
+  <header class="header">
+    <div class="brand">
+      <span class="brand-icon">{{ APP_ICON }}</span>
+      <span class="brand-name">{{ APP_NAME }}</span>
+    </div>
+    <span class="version">{{ APP_RELEASE }}</span>
+  </header>
+
+  <main class="container" style="max-width:560px;padding-bottom:40px;">
+
+    <div style="margin:24px 0 20px;">
+      <h1 style="font-size:1.4rem;font-weight:800;color:var(--text);margin:0 0 6px;">🗳️ {{ vote.titre }}</h1>
+      {% if vote.description %}
+      <p style="margin:0 0 8px;color:var(--text-muted);font-size:0.9rem;">{{ vote.description }}</p>
+      {% endif %}
+      <span style="padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:700;
+                   background:{% if vote.statut=='ouvert' %}#d1fae5{% else %}#f1f5f9{% endif %};
+                   color:{% if vote.statut=='ouvert' %}#065f46{% else %}#475569{% endif %};">
+        {% if vote.statut=='ouvert' %}🟢 Sondage ouvert{% else %}🔒 Sondage clos{% endif %}
+      </span>
+    </div>
+
+    {% if vote.statut == 'ouvert' and options %}
+    <div class="card" style="padding:20px;" id="form-card">
+      <div style="margin-bottom:14px;">
+        <label style="font-weight:600;font-size:0.88rem;display:block;margin-bottom:6px;">Votre prénom et nom *</label>
+        <input type="text" id="pub-nom" placeholder="Ex : Marie Dupont" style="max-width:100%;">
+      </div>
+      <div style="margin-bottom:18px;">
+        <label style="font-weight:600;font-size:0.88rem;display:block;margin-bottom:10px;">
+          {% if vote.type == 'multiple' %}Vos choix (plusieurs possibles) :{% else %}Votre choix :{% endif %}
+        </label>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          {% for opt in options %}
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 14px;
+                        border:2px solid var(--border);border-radius:var(--radius);background:var(--bg);
+                        transition:border-color 0.15s;"
+                 onclick="selectOption(this)">
+            <input type="{% if vote.type == 'multiple' %}checkbox{% else %}radio{% endif %}"
+                   name="vote-opt" class="vote-opt" data-oid="{{ opt.id }}"
+                   style="width:auto;accent-color:var(--primary);">
+            <span style="font-weight:600;font-size:0.95rem;">{{ opt.texte }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="soumettre({{ vote.id }})" style="width:100%;font-size:1rem;padding:14px;">
+        Envoyer ma réponse
+      </button>
+    </div>
+
+    <div id="merci-card" class="card" style="display:none;text-align:center;padding:40px 20px;">
+      <div style="font-size:3rem;margin-bottom:12px;">✅</div>
+      <h2 style="font-size:1.2rem;font-weight:700;margin:0 0 8px;">Merci pour votre réponse !</h2>
+      <p style="color:var(--text-muted);margin:0;">Votre vote a bien été enregistré.</p>
+    </div>
+
+    {% elif vote.statut == 'clos' %}
+    <div class="card" style="text-align:center;padding:40px 20px;">
+      <div style="font-size:3rem;margin-bottom:12px;">🔒</div>
+      <h2 style="font-size:1.1rem;font-weight:700;margin:0 0 8px;">Sondage clos</h2>
+      <p style="color:var(--text-muted);margin:0;">Ce sondage n'accepte plus de réponses.</p>
+    </div>
+    {% else %}
+    <div class="card" style="text-align:center;padding:40px 20px;">
+      <p class="empty-msg">Aucune option disponible.</p>
+    </div>
+    {% endif %}
+
+  </main>
+
+  <script>
+  function selectOption(label) {
+    var input = label.querySelector('input');
+    if (input.type === 'radio') {
+      document.querySelectorAll('label[onclick]').forEach(function(l) {
+        l.style.borderColor = 'var(--border)';
+        l.style.background = 'var(--bg)';
+      });
+      label.style.borderColor = 'var(--primary)';
+      label.style.background = '#eff6ff';
+    } else {
+      if (input.checked) {
+        label.style.borderColor = 'var(--primary)';
+        label.style.background = '#eff6ff';
+      } else {
+        label.style.borderColor = 'var(--border)';
+        label.style.background = 'var(--bg)';
+      }
+    }
+  }
+
+  function soumettre(vid) {
+    var nom = (document.getElementById('pub-nom').value || '').trim();
+    if (!nom) { alert('Veuillez saisir votre prénom et nom.'); return; }
+    var oids = [];
+    document.querySelectorAll('.vote-opt:checked').forEach(function(el) {
+      oids.push(parseInt(el.getAttribute('data-oid')));
+    });
+    if (oids.length === 0) { alert('Veuillez sélectionner au moins une option.'); return; }
+    fetch('../../api/votes/' + vid + '/repondre', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({nom: nom, option_ids: oids})
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
+        if (data.ok) {
+          document.getElementById('form-card').style.display = 'none';
+          document.getElementById('merci-card').style.display = 'block';
+        } else {
+          alert(data.error || 'Erreur lors de l\'envoi.');
+        }
+      });
+  }
+  </script>
+</body>
+</html>

@@ -10,7 +10,13 @@
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
     <a href="{{ url_for('evenements.evenements') }}" class="btn btn-secondary btn-sm">← Retour</a>
+    {% if evt.token and evt.statut != 'confirme' %}
+    <button onclick="copierLien('{{ url_for('evenements.evenement_public', token=evt.token, _external=True) }}')"
+            class="btn btn-secondary btn-sm">🔗 Partager</button>
+    {% endif %}
     <button onclick="ouvrirFormCreneau()" class="btn btn-secondary btn-sm">+ Créneau</button>
+    <button onclick="editerEvenement()" class="btn btn-secondary btn-sm">✏️ Modifier</button>
+    <button onclick="supprimerEvenement()" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
   </div>
 </div>
 
@@ -20,7 +26,24 @@
 </div>
 {% endif %}
 
-<!-- Formulaire de disponibilité -->
+{% if evt.statut == 'confirme' %}
+
+<!-- Date fixe confirmée -->
+{% if creneaux %}
+<div class="card" style="margin-bottom:20px;padding:20px 24px;background:#f0fdf4;border:1px solid #bbf7d0;">
+  <div style="display:flex;align-items:center;gap:14px;">
+    <span style="font-size:2rem;line-height:1;">📌</span>
+    <div>
+      <div style="font-size:0.72rem;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Date confirmée</div>
+      <div style="font-size:1.3rem;font-weight:700;color:#166534;">{{ creneaux[0].date_heure | dh_fr }}</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+
+<!-- Formulaire de disponibilité (sondage uniquement) -->
 <div class="card" style="margin-bottom:20px;">
   <div class="card-header" style="margin-bottom:16px;">
     <span class="card-title">✋ Indiquer mes disponibilités</span>
@@ -36,7 +59,7 @@
       {% for c in creneaux %}
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);">
         <input type="checkbox" class="creneau-check" data-cid="{{ c.id }}" style="width:auto;accent-color:var(--primary);">
-        <span style="font-weight:600;">{{ c.date_heure[:16].replace('T', ' ') }}</span>
+        <span style="font-weight:600;">{{ c.date_heure | dh_fr }}</span>
         <span style="margin-left:auto;font-size:0.78rem;color:var(--text-muted);">{{ c.dispos|length }} disponible(s)</span>
       </label>
       {% endfor %}
@@ -61,10 +84,8 @@
         <th style="min-width:140px;">Participant</th>
         {% for c in creneaux %}
         <th style="text-align:center;font-size:0.75rem;min-width:90px;">
-          {{ c.date_heure[:16].replace('T', ' ') }}
-          <div style="font-size:0.7rem;color:var(--text-muted);font-weight:400;">
-            {{ c.dispos|length }} dispo(s)
-          </div>
+          {{ c.date_heure | dh_fr }}
+          <div style="font-size:0.7rem;color:var(--text-muted);font-weight:400;">{{ c.dispos|length }} dispo(s)</div>
         </th>
         {% endfor %}
         <th style="width:50px;"></th>
@@ -85,7 +106,6 @@
       </td>
     </tr>
     {% endfor %}
-    <!-- Ligne totaux -->
     <tr style="background:var(--bg);font-weight:700;">
       <td style="font-size:0.8rem;color:var(--text-muted);">TOTAL disponibles</td>
       {% for c in creneaux %}
@@ -103,17 +123,21 @@
 </div>
 {% endif %}
 
-<!-- Gestion des créneaux -->
+{% endif %}{# fin if confirme #}
+
+<!-- Gestion des créneaux (admin) -->
 <div class="card">
   <div class="card-header" style="margin-bottom:12px;">
-    <span class="card-title">🗓️ Créneaux proposés</span>
+    <span class="card-title">🗓️ {% if evt.statut == 'confirme' %}Date de l'événement{% else %}Créneaux proposés{% endif %}</span>
     <button onclick="ouvrirFormCreneau()" class="btn btn-secondary btn-sm">+ Ajouter</button>
   </div>
   {% if creneaux %}
   {% for c in creneaux %}
   <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">
-    <span style="flex:1;font-size:0.9rem;">🕐 {{ c.date_heure[:16].replace('T', ' ') }}</span>
+    <span style="flex:1;font-size:0.9rem;">🕐 {{ c.date_heure | dh_fr }}</span>
+    {% if evt.statut != 'confirme' %}
     <span style="font-size:0.78rem;color:var(--text-muted);">{{ c.dispos|length }} réponse(s)</span>
+    {% endif %}
     <button onclick="supprimerCreneau({{ c.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
   </div>
   {% endfor %}
@@ -125,6 +149,51 @@
 
 {% block scripts %}
 <script>
+function editerEvenement() {
+  var d = {{ evt | tojson }};
+  openModal('Modifier l\'événement',
+    '<div class="form-grid">' +
+    '<div class="form-group form-full"><label>Titre *</label><input type="text" id="evt-titre" value="' + escHtml(d.titre||'') + '" required></div>' +
+    '<div class="form-group"><label>Lieu</label><input type="text" id="evt-lieu" value="' + escHtml(d.lieu||'') + '"></div>' +
+    '<div class="form-group"><label>Statut</label><select id="evt-statut">' +
+    '<option value="planification"' + (d.statut==='planification'?' selected':'') + '>Planification</option>' +
+    '<option value="confirme"'      + (d.statut==='confirme'     ?' selected':'') + '>Confirmé</option>' +
+    '<option value="annule"'        + (d.statut==='annule'       ?' selected':'') + '>Annulé</option>' +
+    '</select></div>' +
+    '<div class="form-group form-full"><label>Description</label><textarea id="evt-description" rows="3">' + escHtml(d.description||'') + '</textarea></div>' +
+    '</div><div class="form-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+    '<button type="button" class="btn btn-primary" onclick="saveEditionEvenement()">Enregistrer</button></div>');
+}
+
+function saveEditionEvenement() {
+  var titre = document.getElementById('evt-titre').value.trim();
+  if (!titre) { alert('Le titre est obligatoire.'); return; }
+  fetch('../api/evenements/{{ evt.id }}', {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      titre: titre,
+      lieu: document.getElementById('evt-lieu').value,
+      statut: document.getElementById('evt-statut').value,
+      description: document.getElementById('evt-description').value
+    })
+  }).then(function(){ closeModal(); location.reload(); });
+}
+
+function supprimerEvenement() {
+  if (!confirm('Supprimer cet événement et tous ses créneaux ?')) return;
+  fetch('../api/evenements/{{ evt.id }}', { method: 'DELETE' })
+    .then(function(){ window.location.href = '../evenements'; });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function copierLien(url) {
+  navigator.clipboard.writeText(url);
+}
+
 function ouvrirFormCreneau() {
   var heureOpts = '';
   for (var h = 7; h <= 22; h++) {

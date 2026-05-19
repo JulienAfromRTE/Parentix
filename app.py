@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 APP_NAME    = "Parentix"
 APP_SLUG    = "parentix"
-APP_RELEASE = "v1.0"
+APP_RELEASE = "v1.2"
 APP_DESCRIPTION = "Pilotage de l'association FCPE : taches, depenses, recettes, evenements, kermesse"
 APP_ICON    = "🏫"
 APP_COLOR   = "#1e40af"
@@ -28,6 +28,7 @@ from routes.recettes import bp as recettes_bp
 from routes.evenements import bp as evenements_bp
 from routes.kermesse import bp as kermesse_bp
 from routes.parametres import bp as parametres_bp
+from routes.votes import bp as votes_bp
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(APP_NAME)
@@ -41,6 +42,7 @@ app.register_blueprint(recettes_bp)
 app.register_blueprint(evenements_bp)
 app.register_blueprint(kermesse_bp)
 app.register_blueprint(parametres_bp)
+app.register_blueprint(votes_bp)
 
 request_count = 0
 start_time = time.time()
@@ -49,6 +51,33 @@ start_time = time.time()
 @app.context_processor
 def inject_app_vars():
     return dict(APP_NAME=APP_NAME, APP_ICON=APP_ICON, APP_RELEASE=APP_RELEASE, APP_COLOR=APP_COLOR)
+
+
+_MOIS_FR = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
+
+@app.template_filter('dh_fr')
+def format_dh_fr(s):
+    """Formate une date ISO en français : '21 mai 2026 · 11h30'."""
+    if not s:
+        return '—'
+    try:
+        from datetime import datetime
+        dt = datetime.fromisoformat(s[:16])
+        return f"{dt.day} {_MOIS_FR[dt.month-1]} {dt.year} · {dt.hour:02d}h{dt.minute:02d}"
+    except Exception:
+        return s[:16].replace('T', ' ')
+
+@app.template_filter('d_court')
+def format_d_court(s):
+    """Formate une date ISO en court : '21 mai'."""
+    if not s:
+        return '—'
+    try:
+        from datetime import datetime
+        dt = datetime.fromisoformat(s[:10])
+        return f"{dt.day} {_MOIS_FR[dt.month-1]}"
+    except Exception:
+        return s[:10]
 
 
 @app.before_request
@@ -61,6 +90,8 @@ def count_requests():
 def require_login():
     public = {'login', 'logout', 'health', 'static', 'service_worker'}
     if request.endpoint and request.endpoint.split('.')[0] in public:
+        return
+    if request.endpoint in ('votes.vote_public', 'evenements.evenement_public'):
         return
     if not session.get('logged_in'):
         return redirect(url_for('login', next=request.path))
@@ -119,9 +150,15 @@ def index():
     total_recettes = db.execute("SELECT COALESCE(SUM(montant),0) as s FROM recettes").fetchone()['s']
     nb_parents = db.execute("SELECT COUNT(*) as c FROM parents").fetchone()['c']
     nb_evenements = db.execute("SELECT COUNT(*) as c FROM evenements WHERE statut != 'annule'").fetchone()['c']
+    nb_votes_ouverts = db.execute("SELECT COUNT(*) as c FROM votes WHERE statut = 'ouvert'").fetchone()['c']
 
     taches_a_venir = db.execute(
-        "SELECT * FROM taches WHERE statut != 'clos' ORDER BY important DESC, date_echeance ASC NULLS LAST, created_at DESC LIMIT 7"
+        """SELECT t.*, p.prenom || ' ' || SUBSTR(p.nom, 1, 1) || '.' as porteur_nom
+           FROM taches t
+           LEFT JOIN parents p ON p.id = t.porteur_id
+           WHERE t.statut != 'clos'
+           ORDER BY t.important DESC, t.date_echeance ASC NULLS LAST, t.created_at DESC
+           LIMIT 7"""
     ).fetchall()
 
     prochains_evenements_raw = db.execute(
@@ -151,7 +188,7 @@ def index():
     return render_template('index.html',
         nb_taches=nb_taches, total_depenses=total_depenses,
         total_recettes=total_recettes, nb_parents=nb_parents,
-        nb_evenements=nb_evenements,
+        nb_evenements=nb_evenements, nb_votes_ouverts=nb_votes_ouverts,
         taches_a_venir=taches_a_venir, prochains_evenements=prochains_evenements,
         depenses_recentes=depenses_recentes, recettes_recentes=recettes_recentes,
         solde=solde, today=today)

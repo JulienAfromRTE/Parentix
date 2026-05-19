@@ -26,11 +26,11 @@
     </div>
   </div>
   <div class="kpi-card">
-    <div class="kpi-icon">👨‍👩‍👧‍👦</div>
+    <div class="kpi-icon">🗳️</div>
     <div class="kpi-content">
-      <div class="kpi-value">{{ nb_parents }}</div>
-      <div class="kpi-label">Parents enregistrés</div>
-      <div class="kpi-sub">dans l'annuaire</div>
+      <div class="kpi-value">{{ nb_votes_ouverts }}</div>
+      <div class="kpi-label">Sondages ouverts</div>
+      <div class="kpi-sub"><a href="{{ url_for('votes.votes') }}" style="color:var(--primary);text-decoration:none;">voir les votes</a></div>
     </div>
   </div>
   <div class="kpi-card">
@@ -82,6 +82,9 @@
   <div style="padding:9px 0;border-bottom:1px solid var(--border);">
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;">
       <span style="font-weight:600;font-size:0.88rem;">{{ t.titre }}</span>
+      {% if t.porteur_nom %}
+      <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;padding:2px 7px;border-radius:12px;font-weight:600;background:#dbeafe;color:#1e40af;white-space:nowrap;">👤 {{ t.porteur_nom }}</span>
+      {% endif %}
       {% if t.date_echeance %}
       <span style="font-size:0.7rem;padding:2px 7px;border-radius:4px;font-weight:600;white-space:nowrap;
                    background:{% if t.date_echeance < today and t.statut != 'clos' %}#fee2e2{% elif t.date_echeance == today and t.statut != 'clos' %}#fff7ed{% else %}#eff6ff{% endif %};
