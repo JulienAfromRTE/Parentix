@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify
-from db import get_db
+from db import get_db, PALETTE
 
 bp = Blueprint('parametres', __name__)
 
@@ -8,6 +8,12 @@ bp = Blueprint('parametres', __name__)
 def parametres():
     db = get_db()
     annee = request.args.get('annee', '2025-2026')
+    cats_depenses = [dict(r) for r in db.execute(
+        "SELECT * FROM categories WHERE module='depenses' ORDER BY ordre, nom"
+    ).fetchall()]
+    cats_recettes = [dict(r) for r in db.execute(
+        "SELECT * FROM categories WHERE module='recettes' ORDER BY ordre, nom"
+    ).fetchall()]
 
     classes = db.execute(
         "SELECT c.*, (SELECT COUNT(*) FROM parents p WHERE p.classe_id = c.id AND p.annee_scolaire=?) as nb_parents "
@@ -32,7 +38,52 @@ def parametres():
     return render_template('parametres.html',
         classes=[dict(c) for c in classes],
         parents=[dict(p) for p in parents],
-        annee=annee, annees=sorted(set(annees), reverse=True))
+        annee=annee, annees=sorted(set(annees), reverse=True),
+        cats_depenses=cats_depenses, cats_recettes=cats_recettes,
+        palette=PALETTE)
+
+
+@bp.route('/api/parametres/categories', methods=['POST'])
+def api_add_categorie():
+    data = request.json
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO categories (module, nom, couleur, ordre) VALUES (?,?,?,?)",
+        (data.get('module', 'depenses'), data.get('nom', ''),
+         data.get('couleur', 'gris'),
+         int(data.get('ordre', 99)))
+    )
+    db.commit()
+    db.close()
+    return jsonify({"ok": True, "id": cur.lastrowid})
+
+
+@bp.route('/api/parametres/categories/<int:cid>', methods=['PUT'])
+def api_update_categorie(cid):
+    data = request.json
+    db = get_db()
+    old = db.execute("SELECT nom FROM categories WHERE id=?", (cid,)).fetchone()
+    new_nom = data.get('nom', '')
+    if old and old['nom'] != new_nom:
+        module = db.execute("SELECT module FROM categories WHERE id=?", (cid,)).fetchone()['module']
+        table = 'depenses' if module == 'depenses' else 'recettes'
+        db.execute(f"UPDATE {table} SET categorie=? WHERE categorie=?", (new_nom, old['nom']))
+    db.execute(
+        "UPDATE categories SET nom=?, couleur=?, ordre=? WHERE id=?",
+        (new_nom, data.get('couleur', 'gris'), int(data.get('ordre', 99)), cid)
+    )
+    db.commit()
+    db.close()
+    return jsonify({"ok": True})
+
+
+@bp.route('/api/parametres/categories/<int:cid>', methods=['DELETE'])
+def api_delete_categorie(cid):
+    db = get_db()
+    db.execute("DELETE FROM categories WHERE id=?", (cid,))
+    db.commit()
+    db.close()
+    return jsonify({"ok": True})
 
 
 @bp.route('/api/parametres/classes', methods=['POST'])

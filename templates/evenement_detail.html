@@ -126,20 +126,29 @@
 {% block scripts %}
 <script>
 function ouvrirFormCreneau() {
-  openModal('Ajouter un créneau', '<div class="form-grid" style="grid-template-columns:1fr;">' +
-    '<div class="form-group form-full"><label>Date et heure *</label>' +
-    '<input type="datetime-local" id="cr-date" required></div>' +
+  var heureOpts = '';
+  for (var h = 7; h <= 22; h++) {
+    var hh = h < 10 ? '0' + h : '' + h;
+    heureOpts += '<option value="' + hh + ':00">' + hh + ':00</option>';
+    heureOpts += '<option value="' + hh + ':30">' + hh + ':30</option>';
+  }
+  openModal('Ajouter un créneau',
+    '<div class="form-grid">' +
+    '<div class="form-group"><label>Date *</label><input type="date" id="cr-date" required></div>' +
+    '<div class="form-group"><label>Heure *</label><select id="cr-heure">' + heureOpts + '</select></div>' +
     '</div><div class="form-actions">' +
     '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
     '<button type="button" class="btn btn-primary" onclick="saveCreneau()">Ajouter</button></div>');
+  document.getElementById('cr-heure').value = '09:00';
 }
 
 function saveCreneau() {
-  var dh = document.getElementById('cr-date').value;
-  if (!dh) { alert('Date et heure obligatoires.'); return; }
+  var d = document.getElementById('cr-date').value;
+  var h = document.getElementById('cr-heure').value;
+  if (!d || !h) { alert('Date et heure obligatoires.'); return; }
   fetch('../api/evenements/{{ evt.id }}/creneaux', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({date_heure: dh})
+    body: JSON.stringify({date_heure: d + 'T' + h})
   }).then(function(){ closeModal(); location.reload(); });
 }
 

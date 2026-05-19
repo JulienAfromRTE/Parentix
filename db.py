@@ -5,6 +5,17 @@ logger = logging.getLogger(__name__)
 DB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'app.db')
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
+PALETTE = {
+    'bleu':   {'bg': '#dbeafe', 'text': '#1e40af'},
+    'violet': {'bg': '#ede9fe', 'text': '#5b21b6'},
+    'orange': {'bg': '#fef3c7', 'text': '#92400e'},
+    'vert':   {'bg': '#d1fae5', 'text': '#065f46'},
+    'rouge':  {'bg': '#fee2e2', 'text': '#991b1b'},
+    'gris':   {'bg': '#f1f5f9', 'text': '#475569'},
+    'rose':   {'bg': '#fce7f3', 'text': '#9d174d'},
+    'cyan':   {'bg': '#e0f2fe', 'text': '#0c4a6e'},
+}
+
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -96,6 +107,14 @@ def init_db():
             annee_scolaire TEXT DEFAULT '2025-2026',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module TEXT NOT NULL,
+            nom TEXT NOT NULL,
+            couleur TEXT DEFAULT 'gris',
+            ordre INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
         CREATE TABLE IF NOT EXISTS parents (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             prenom TEXT NOT NULL,
@@ -110,5 +129,26 @@ def init_db():
         );
     """)
     db.commit()
+
+    # Seed catégories par défaut
+    if db.execute("SELECT COUNT(*) as c FROM categories").fetchone()['c'] == 0:
+        defaults = [
+            ('depenses', 'Matériel',       'bleu',   1),
+            ('depenses', 'Fonctionnement', 'violet', 2),
+            ('depenses', 'Animation',      'orange', 3),
+            ('depenses', 'Communication',  'vert',   4),
+            ('depenses', 'Autre',          'gris',   5),
+            ('recettes', 'Cotisation',     'bleu',   1),
+            ('recettes', 'Subvention',     'violet', 2),
+            ('recettes', 'Don',            'orange', 3),
+            ('recettes', 'Vente',          'vert',   4),
+            ('recettes', 'Autre',          'gris',   5),
+        ]
+        for row in defaults:
+            db.execute(
+                "INSERT INTO categories (module, nom, couleur, ordre) VALUES (?,?,?,?)", row
+            )
+        db.commit()
+
     db.close()
     logger.info("[DB] Base initialisee")

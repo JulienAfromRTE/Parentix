@@ -124,8 +124,9 @@ def index():
         "SELECT * FROM taches WHERE statut != 'clos' ORDER BY important DESC, date_echeance ASC NULLS LAST, created_at DESC LIMIT 7"
     ).fetchall()
 
-    prochains_evenements = db.execute(
+    prochains_evenements_raw = db.execute(
         """SELECT e.*,
+           (SELECT COUNT(*) FROM evenement_creneaux ec WHERE ec.evenement_id = e.id) as nb_creneaux,
            (SELECT COUNT(DISTINCT ed.nom) FROM evenement_creneaux ec
             JOIN evenement_disponibilites ed ON ed.creneau_id = ec.id
             WHERE ec.evenement_id = e.id) as nb_reponses,
@@ -135,6 +136,7 @@ def index():
            ORDER BY prochain_creneau ASC NULLS LAST, e.created_at DESC
            LIMIT 5"""
     ).fetchall()
+    prochains_evenements = [dict(r) for r in prochains_evenements_raw]
 
     depenses_recentes = db.execute(
         "SELECT * FROM depenses ORDER BY date_depense DESC, created_at DESC LIMIT 5"

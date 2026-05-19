@@ -16,6 +16,46 @@
   </form>
 </div>
 
+<!-- Catégories -->
+<div class="two-col" style="align-items:start;margin-bottom:0;">
+  <!-- Catégories dépenses -->
+  <div class="card">
+    <div class="card-header" style="margin-bottom:14px;">
+      <span class="card-title">💸 Catégories dépenses</span>
+      <button onclick="ouvrirFormCat('depenses')" class="btn btn-primary btn-sm">+ Ajouter</button>
+    </div>
+    {% for c in cats_depenses %}
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
+      <span class="badge" style="background:{{ palette.get(c.couleur,{'bg':'#f1f5f9','text':'#475569'}).bg }};color:{{ palette.get(c.couleur,{'bg':'#f1f5f9','text':'#475569'}).text }};flex-shrink:0;">{{ c.nom }}</span>
+      <span style="flex:1;font-size:0.78rem;color:var(--text-muted);">{{ c.couleur }}</span>
+      <button onclick="editerCat(this)" data-cat='{{ c|tojson }}' class="btn btn-secondary btn-sm">✏️</button>
+      <button onclick="supprimerCat({{ c.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
+    </div>
+    {% else %}
+    <p class="empty-msg">Aucune catégorie</p>
+    {% endfor %}
+  </div>
+
+  <!-- Catégories recettes -->
+  <div class="card">
+    <div class="card-header" style="margin-bottom:14px;">
+      <span class="card-title">💰 Catégories recettes</span>
+      <button onclick="ouvrirFormCat('recettes')" class="btn btn-primary btn-sm">+ Ajouter</button>
+    </div>
+    {% for c in cats_recettes %}
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
+      <span class="badge" style="background:{{ palette.get(c.couleur,{'bg':'#f1f5f9','text':'#475569'}).bg }};color:{{ palette.get(c.couleur,{'bg':'#f1f5f9','text':'#475569'}).text }};flex-shrink:0;">{{ c.nom }}</span>
+      <span style="flex:1;font-size:0.78rem;color:var(--text-muted);">{{ c.couleur }}</span>
+      <button onclick="editerCat(this)" data-cat='{{ c|tojson }}' class="btn btn-secondary btn-sm">✏️</button>
+      <button onclick="supprimerCat({{ c.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
+    </div>
+    {% else %}
+    <p class="empty-msg">Aucune catégorie</p>
+    {% endfor %}
+  </div>
+</div>
+<div style="margin-bottom:24px;"></div>
+
 <div class="two-col" style="align-items:start;">
 
   <!-- Classes -->
@@ -85,6 +125,59 @@
 <script>
 var _classeEditId = null;
 var _parentEditId = null;
+var _catEditId = null;
+
+var _couleurs = ['bleu','violet','orange','vert','rouge','gris','rose','cyan'];
+var _paletteLabels = {'bleu':'Bleu','violet':'Violet','orange':'Orange','vert':'Vert','rouge':'Rouge','gris':'Gris','rose':'Rose','cyan':'Cyan'};
+var _palette = {{ palette | tojson }};
+
+function ouvrirFormCat(module) {
+  _catEditId = null;
+  openModal('Nouvelle catégorie', _formCatHtml({module: module, nom:'', couleur:'gris', ordre:99}));
+}
+
+function editerCat(btn) {
+  var data = JSON.parse(btn.getAttribute('data-cat'));
+  _catEditId = data.id;
+  openModal('Modifier la catégorie', _formCatHtml(data));
+}
+
+function _formCatHtml(d) {
+  var coulOpts = _couleurs.map(function(k){
+    var p = _palette[k] || {bg:'#f1f5f9',text:'#475569'};
+    return '<option value="'+k+'"'+(d.couleur===k?' selected':'')+' style="background:'+p.bg+';color:'+p.text+'">'+_paletteLabels[k]+'</option>';
+  }).join('');
+  var modOpts = ['depenses','recettes'].map(function(m){
+    return '<option value="'+m+'"'+(d.module===m?' selected':'')+'>'+( m==='depenses'?'💸 Dépenses':'💰 Recettes')+'</option>';
+  }).join('');
+  return '<div class="form-grid">' +
+    '<div class="form-group"><label>Module</label><select id="cat-module">'+modOpts+'</select></div>' +
+    '<div class="form-group"><label>Couleur</label><select id="cat-couleur">'+coulOpts+'</select></div>' +
+    '<div class="form-group form-full"><label>Nom *</label><input type="text" id="cat-nom" value="'+escHtml(d.nom||'')+'" required></div>' +
+    '<div class="form-group"><label>Ordre</label><input type="number" id="cat-ordre" value="'+(d.ordre||99)+'" min="1" max="99"></div>' +
+    '</div><div class="form-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+    '<button type="button" class="btn btn-primary" onclick="saveCat()">Enregistrer</button></div>';
+}
+
+function saveCat() {
+  var nom = document.getElementById('cat-nom').value.trim();
+  if (!nom) { alert('Le nom est obligatoire.'); return; }
+  var payload = {
+    nom: nom,
+    module: document.getElementById('cat-module').value,
+    couleur: document.getElementById('cat-couleur').value,
+    ordre: parseInt(document.getElementById('cat-ordre').value) || 99
+  };
+  var url = _catEditId ? 'api/parametres/categories/' + _catEditId : 'api/parametres/categories';
+  fetch(url, { method: _catEditId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+    .then(function(){ closeModal(); location.reload(); });
+}
+
+function supprimerCat(id) {
+  if (!confirm('Supprimer cette catégorie ? Les entrées existantes garderont leur ancien nom.')) return;
+  fetch('api/parametres/categories/' + id, { method: 'DELETE' }).then(function(){ location.reload(); });
+}
 var _annee = {{ annee | tojson }};
 var _classes = {{ classes | tojson }};
 

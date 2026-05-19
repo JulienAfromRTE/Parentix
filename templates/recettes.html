@@ -10,15 +10,13 @@
 
 <!-- Répartition par catégorie -->
 <div class="kpi-grid kpi-grid-3" style="margin-bottom:20px;">
-  {% set cat_icons = {'cotisation':'🎫','subvention':'🏛️','don':'🤝','vente':'🛍️','autre':'📌'} %}
-  {% set cat_colors = {'cotisation':'#3b82f6','subvention':'#8b5cf6','don':'#f59e0b','vente':'#10b981','autre':'#94a3b8'} %}
   {% for c in categories %}
-  {% if totaux_cat[c] > 0 %}
-  <div class="kpi-card kpi-card-compact" style="cursor:pointer;" onclick="filtrerCat('{{ c }}')">
-    <div class="kpi-icon">{{ cat_icons.get(c, '📌') }}</div>
+  {% if totaux_cat[c.nom] > 0 %}
+  <div class="kpi-card kpi-card-compact" style="cursor:pointer;" onclick="filtrerCat('{{ c.nom|e }}')">
+    <div class="kpi-icon">💰</div>
     <div class="kpi-content">
-      <div class="kpi-value" style="color:{{ cat_colors.get(c,'#94a3b8') }};">{{ "{:,.0f}".format(totaux_cat[c]).replace(',', ' ') }} €</div>
-      <div class="kpi-label">{{ c | capitalize }}</div>
+      <div class="kpi-value" style="color:{{ couleurs[c.nom].text }};">{{ "{:,.0f}".format(totaux_cat[c.nom]).replace(',', ' ') }} €</div>
+      <div class="kpi-label">{{ c.nom }}</div>
     </div>
   </div>
   {% endif %}
@@ -31,7 +29,7 @@
     <select name="categorie" onchange="this.form.submit()" style="width:auto;border:1px solid var(--border);border-radius:var(--radius);padding:7px 8px;font-size:0.82rem;background:var(--surface);">
       <option value="all" {% if cat_filtre=='all' %}selected{% endif %}>Toutes catégories</option>
       {% for c in categories %}
-      <option value="{{ c }}" {% if cat_filtre==c %}selected{% endif %}>{{ c | capitalize }}</option>
+      <option value="{{ c.nom }}" {% if cat_filtre==c.nom %}selected{% endif %}>{{ c.nom }}</option>
       {% endfor %}
     </select>
     <select name="sort" onchange="this.form.submit()" style="width:auto;border:1px solid var(--border);border-radius:var(--radius);padding:7px 8px;font-size:0.82rem;background:var(--surface);">
@@ -67,7 +65,7 @@
         {% if r.notes %}<br><small class="text-muted">{{ r.notes }}</small>{% endif %}
       </td>
       <td style="white-space:nowrap;"><strong style="color:#16a34a;">+{{ "{:,.2f}".format(r.montant).replace(',', ' ') }} €</strong></td>
-      <td class="hide-mobile"><span class="badge badge-cat-{{ r.categorie }}">{{ r.categorie }}</span></td>
+      <td class="hide-mobile"><span class="badge" style="background:{{ couleurs.get(r.categorie, {'bg':'#f1f5f9','text':'#475569'}).bg }};color:{{ couleurs.get(r.categorie, {'bg':'#f1f5f9','text':'#475569'}).text }};">{{ r.categorie }}</span></td>
       <td class="hide-mobile"><small class="text-muted">{{ r.date_recette or '—' }}</small></td>
       <td>
         <div style="display:flex;gap:4px;">
@@ -101,9 +99,10 @@ function editerRecette(btn) {
   openModal('Modifier la recette', _formRecHtml(data));
 }
 
+var _recCats = {{ categories | tojson }};
+
 function _formRecHtml(d) {
-  var cats = ['cotisation','subvention','don','vente','autre'];
-  var catOpts = cats.map(function(c){ return '<option value="'+c+'"'+(d.categorie===c?' selected':'')+'>'+c.charAt(0).toUpperCase()+c.slice(1)+'</option>'; }).join('');
+  var catOpts = _recCats.map(function(c){ return '<option value="'+c.nom+'"'+(d.categorie===c.nom?' selected':'')+'>'+c.nom+'</option>'; }).join('');
   return '<div class="form-grid">' +
     '<div class="form-group form-full"><label>Libellé *</label><input type="text" id="rec-libelle" value="'+escHtml(d.libelle||'')+'" required></div>' +
     '<div class="form-group"><label>Montant (€) *</label><input type="number" id="rec-montant" value="'+escHtml(d.montant||'')+'" step="0.01" min="0" required></div>' +
