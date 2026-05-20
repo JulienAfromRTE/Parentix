@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 APP_NAME    = "Parentix"
 APP_SLUG    = "parentix"
-APP_RELEASE = "v1.2"
+APP_RELEASE = "v1.3"
 APP_DESCRIPTION = "Pilotage de l'association FCPE : taches, depenses, recettes, evenements, kermesse"
 APP_ICON    = "🏫"
 APP_COLOR   = "#1e40af"
@@ -33,8 +33,31 @@ from routes.votes import bp as votes_bp
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(APP_NAME)
 
+class PrefixMiddleware:
+    """Monte l'app Flask sous un préfixe URL (ex: /parentix)."""
+    def __init__(self, wsgi_app, prefix):
+        self.app = wsgi_app
+        self.prefix = prefix.rstrip('/')
+
+    def __call__(self, environ, start_response):
+        path = environ.get('PATH_INFO', '')
+        # Health check accessible sans préfixe (Projectix appelle /health directement)
+        if path == '/health':
+            return self.app(environ, start_response)
+        if path == self.prefix:
+            start_response('301 Moved Permanently', [('Location', self.prefix + '/'), ('Content-Type', 'text/plain')])
+            return [b'']
+        if path.startswith(self.prefix + '/'):
+            environ['PATH_INFO'] = path[len(self.prefix):] or '/'
+            environ['SCRIPT_NAME'] = environ.get('SCRIPT_NAME', '') + self.prefix
+            return self.app(environ, start_response)
+        start_response('302 Found', [('Location', self.prefix + '/'), ('Content-Type', 'text/plain')])
+        return [b'']
+
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-parentix')
+app.wsgi_app = PrefixMiddleware(app.wsgi_app, '/parentix')
 
 app.register_blueprint(taches_bp)
 app.register_blueprint(depenses_bp)

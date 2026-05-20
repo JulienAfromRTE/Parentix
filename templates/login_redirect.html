@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <title>Connexion…</title>
   <script>
+    var root = {{ request.script_root | tojson }};
     var target = {{ next_url | tojson }};
-    window.location.href = target && target !== '' ? target : '/';
+    window.location.href = (target && target !== '') ? root + target : root + '/';
   </script>
 </head>
 <body></body>
