@@ -29,6 +29,7 @@ from routes.evenements import bp as evenements_bp
 from routes.kermesse import bp as kermesse_bp
 from routes.parametres import bp as parametres_bp
 from routes.votes import bp as votes_bp
+from routes.commentaires import bp as commentaires_bp
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(APP_NAME)
@@ -58,6 +59,7 @@ app.register_blueprint(evenements_bp)
 app.register_blueprint(kermesse_bp)
 app.register_blueprint(parametres_bp)
 app.register_blueprint(votes_bp)
+app.register_blueprint(commentaires_bp)
 
 request_count = 0
 start_time = time.time()

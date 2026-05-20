@@ -1,4 +1,13 @@
 {% extends 'base.html' %}
+{% block head %}
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<style>
+  .ql-toolbar { border-radius: var(--radius) var(--radius) 0 0; border-color: var(--border) !important; background: var(--bg); }
+  .ql-container { border-radius: 0 0 var(--radius) var(--radius); border-color: var(--border) !important; font-family: inherit; font-size: 0.875rem; }
+  .ql-editor { min-height: 80px; max-height: 180px; overflow-y: auto; }
+  .ql-editor.ql-blank::before { color: var(--text-muted); font-style: normal; }
+</style>
+{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
@@ -77,6 +86,26 @@
 </div>
 {% endif %}
 
+<!-- Commentaires -->
+<div class="card" style="margin-top:20px;">
+  <div class="card-header" style="margin-bottom:14px;">
+    <span class="card-title">💬 Commentaires</span>
+  </div>
+  <div id="inline-cm-list"></div>
+  <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
+    <label style="font-weight:600;font-size:0.82rem;display:block;margin-bottom:4px;">Votre nom</label>
+    <input type="text" id="inline-cm-auteur" list="inline-cm-parents-dl"
+           placeholder="Choisir parmi les parents ou saisie libre"
+           autocomplete="off" style="margin-bottom:10px;">
+    <datalist id="inline-cm-parents-dl"></datalist>
+    <label style="font-weight:600;font-size:0.82rem;display:block;margin-bottom:4px;">Commentaire</label>
+    <div id="inline-cm-editor"></div>
+    <div style="margin-top:10px;text-align:right;">
+      <button class="btn btn-primary" onclick="soumettreCommentaireInline('vote', {{ vote.id }}, '../')">Publier</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast-lien" style="display:none;position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
      background:#1e293b;color:#fff;padding:10px 20px;border-radius:8px;font-size:0.85rem;z-index:9999;">
@@ -85,6 +114,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script>
 function toggleStatut(id, statut) {
   var msg = statut === 'ouvert' ? 'Clore ce sondage ?' : 'Rouvrir ce sondage ?';
@@ -121,5 +151,6 @@ function supprimerRepondant(nom, vid) {
     .then(function(){ location.reload(); });
 }
 
+initCommentairesInline('vote', {{ vote.id }}, '../');
 </script>
 {% endblock %}

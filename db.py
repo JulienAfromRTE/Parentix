@@ -134,6 +134,14 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (classe_id) REFERENCES classes(id)
         );
+        CREATE TABLE IF NOT EXISTS commentaires (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entite TEXT NOT NULL,
+            entite_id INTEGER NOT NULL,
+            auteur TEXT NOT NULL,
+            contenu TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
         CREATE TABLE IF NOT EXISTS votes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             titre TEXT NOT NULL,

@@ -171,6 +171,26 @@
   </div>
 </div>
 
+<!-- Commentaires -->
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-header" style="margin-bottom:14px;">
+    <span class="card-title">💬 Commentaires</span>
+  </div>
+  <div id="inline-cm-list"></div>
+  <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
+    <label style="font-weight:600;font-size:0.82rem;display:block;margin-bottom:4px;">Votre nom</label>
+    <input type="text" id="inline-cm-auteur" list="inline-cm-parents-dl"
+           placeholder="Choisir parmi les parents ou saisie libre"
+           autocomplete="off" style="margin-bottom:10px;">
+    <datalist id="inline-cm-parents-dl"></datalist>
+    <label style="font-weight:600;font-size:0.82rem;display:block;margin-bottom:4px;">Commentaire</label>
+    <div id="inline-cm-editor"></div>
+    <div style="margin-top:10px;text-align:right;">
+      <button class="btn btn-primary" onclick="soumettreCommentaireInline('evenement', {{ evt.id }}, '../')">Publier</button>
+    </div>
+  </div>
+</div>
+
 <!-- Gestion des créneaux (admin) -->
 <div class="card">
   <div class="card-header" style="margin-bottom:12px;">
@@ -365,5 +385,7 @@ function retirerInvite(pid) {
       });
     });
 })();
+
+initCommentairesInline('evenement', {{ evt.id }}, '../');
 </script>
 {% endblock %}
