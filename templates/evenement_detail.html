@@ -6,8 +6,9 @@
   .ql-container { border-radius: 0 0 var(--radius) var(--radius); border-color: var(--border) !important; font-family: inherit; font-size: 0.875rem; }
   .ql-editor { min-height: 110px; max-height: 260px; overflow-y: auto; }
   .ql-editor.ql-blank::before { color: var(--text-muted); font-style: normal; }
-  .evt-desc p { margin: 0 0 0.4em; }
-  .evt-desc ul, .evt-desc ol { margin: 0 0 0.4em; padding-left: 1.4em; }
+  .evt-desc p { margin: 0 0 0.5em; }
+  .evt-desc ul, .evt-desc ol { margin: 0 0 0.5em; padding-left: 1.4em; }
+  .evt-desc li { margin-bottom: 0.3em; }
 </style>
 {% endblock %}
 {% block content %}
@@ -330,6 +331,25 @@ function retirerInvite(pid) {
   fetch('../api/evenements/participants/' + pid, { method: 'DELETE' })
     .then(function(){ location.reload(); });
 }
+
+// Mise en forme automatique de la description : paragraphes longs avec " - " → liste
+(function() {
+  var desc = document.querySelector('.evt-desc');
+  if (!desc) return;
+  desc.querySelectorAll('p').forEach(function(p) {
+    var html = p.innerHTML.trim();
+    if (!html || html.length < 60 || !html.includes(' - ')) return;
+    var parts = html.split(' - ').map(function(s){ return s.trim(); }).filter(Boolean);
+    if (parts.length < 2) return;
+    var ul = document.createElement('ul');
+    parts.forEach(function(part) {
+      var li = document.createElement('li');
+      li.innerHTML = part;
+      ul.appendChild(li);
+    });
+    p.replaceWith(ul);
+  });
+})();
 
 // Charger les parents dans le datalist
 (function() {
