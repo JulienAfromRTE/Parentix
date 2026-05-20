@@ -25,6 +25,17 @@ L'application centralise les outils de pilotage de l'association :
 - **CSS déporté** — `static/css/style.css` (pas de styles inline sauf couleurs dynamiques de badges)
 - **JS** — `static/js/app.js`
 
+## Déploiement — préfixe `/parentix`
+
+L'app est servie sous le préfixe `/parentix` sur le serveur Projectix (`<ip>/parentix/`).
+
+**Mécanisme** : nginx strip `/parentix` avant de proxifier vers Flask (port 5000). Un `_ScriptNameMiddleware` dans `app.py` injecte `SCRIPT_NAME=/parentix` (configurable via la variable d'env `SCRIPT_NAME`) pour que `url_for()` génère les URLs complètes avec le préfixe.
+
+**Règles à respecter :**
+- Toujours utiliser `url_for()` dans les templates — jamais de chemins en dur
+- `login_redirect.html` utilise `request.script_root` pour la redirection post-login — ne pas le casser
+- Ne jamais ajouter de middleware qui intercepte les chemins et redirige (ex: PrefixMiddleware) : nginx strip déjà le préfixe, ce type de middleware crée une boucle infinie (`ERR_TOO_MANY_REDIRECTS`)
+
 ## Variables de config (en haut de app.py — ne pas supprimer)
 
 ```python

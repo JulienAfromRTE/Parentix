@@ -38,7 +38,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-parentix')
 
 # Nginx strip le préfixe /parentix avant de proxifier vers Flask.
 # Ce middleware injecte SCRIPT_NAME pour que url_for() génère les URLs complètes.
-_SCRIPT_NAME = os.environ.get('SCRIPT_NAME', '/parentix')
+_SCRIPT_NAME = os.environ.get('SCRIPT_NAME', '')
 
 class _ScriptNameMiddleware:
     def __init__(self, wsgi_app, script_name):

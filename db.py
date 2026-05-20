@@ -76,6 +76,13 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (creneau_id) REFERENCES evenement_creneaux(id)
         );
+        CREATE TABLE IF NOT EXISTS evenement_participants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            evenement_id INTEGER NOT NULL,
+            nom TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (evenement_id) REFERENCES evenements(id)
+        );
         CREATE TABLE IF NOT EXISTS kermesse_editions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nom TEXT NOT NULL,

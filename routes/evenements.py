@@ -34,6 +34,15 @@ def evenements():
         e['date_retenue'] = best['date_heure'] if best else None
         e['nb_dispos_max'] = best['nb_dispos'] if best else 0
         evenements.append(e)
+
+    all_parts = {}
+    for r in db.execute(
+        "SELECT evenement_id, id, nom FROM evenement_participants ORDER BY nom ASC"
+    ).fetchall():
+        eid = r['evenement_id']
+        if eid not in all_parts:
+            all_parts[eid] = []
+        all_parts[eid].append({'id': r['id'], 'nom': r['nom']})
     db.close()
 
     today_dt = datetime.now().date()
@@ -65,6 +74,7 @@ def evenements():
     today_pct = to_pct(today)
     for e in evenements:
         e['tl_pct'] = to_pct(e.get('prochain_creneau'))
+        e['participants'] = all_parts.get(e['id'], [])
 
     return render_template('evenements.html', evenements=evenements, today=today,
         months=months, today_pct=today_pct,
@@ -98,10 +108,18 @@ def evenement_detail(eid):
             'dispos': {d['nom']: d for d in dispos}
         })
 
+    participants = db.execute(
+        "SELECT * FROM evenement_participants WHERE evenement_id=? ORDER BY nom ASC", (eid,)
+    ).fetchall()
+    participants = [dict(p) for p in participants]
+    for p in participants:
+        all_noms.add(p['nom'])
+
     all_noms = sorted(all_noms)
     db.close()
     return render_template('evenement_detail.html',
-        evt=dict(evt), creneaux=creneaux_data, all_noms=all_noms)
+        evt=dict(evt), creneaux=creneaux_data, all_noms=all_noms,
+        participants=participants)
 
 
 @bp.route('/evenements/p/<token>')
@@ -163,6 +181,7 @@ def api_delete_evenement(eid):
     for cid in cids:
         db.execute("DELETE FROM evenement_disponibilites WHERE creneau_id=?", (cid,))
     db.execute("DELETE FROM evenement_creneaux WHERE evenement_id=?", (eid,))
+    db.execute("DELETE FROM evenement_participants WHERE evenement_id=?", (eid,))
     db.execute("DELETE FROM evenements WHERE id=?", (eid,))
     db.commit()
     db.close()
@@ -228,6 +247,37 @@ def api_set_disponibilites(eid):
                     "DELETE FROM evenement_disponibilites WHERE creneau_id=? AND nom=?", (cid, nom)
                 )
 
+    db.commit()
+    db.close()
+    return jsonify({"ok": True})
+
+
+@bp.route('/api/evenements/<int:eid>/participants', methods=['POST'])
+def api_add_participant(eid):
+    data = request.json
+    nom = (data.get('nom') or '').strip()
+    if not nom:
+        return jsonify({"ok": False, "error": "Nom requis"}), 400
+    db = get_db()
+    existing = db.execute(
+        "SELECT id FROM evenement_participants WHERE evenement_id=? AND nom=?", (eid, nom)
+    ).fetchone()
+    if existing:
+        db.close()
+        return jsonify({"ok": True, "id": existing['id']})
+    cur = db.execute(
+        "INSERT INTO evenement_participants (evenement_id, nom) VALUES (?,?)", (eid, nom)
+    )
+    pid = cur.lastrowid
+    db.commit()
+    db.close()
+    return jsonify({"ok": True, "id": pid})
+
+
+@bp.route('/api/evenements/participants/<int:pid>', methods=['DELETE'])
+def api_delete_participant(pid):
+    db = get_db()
+    db.execute("DELETE FROM evenement_participants WHERE id=?", (pid,))
     db.commit()
     db.close()
     return jsonify({"ok": True})
