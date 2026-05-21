@@ -28,35 +28,38 @@
     📆 Année scolaire {{ school_label }}
   </div>
   {#
-    Layout vertical (origin = top du conteneur, axe à y=80) :
-      y=  4  : début label au-dessus (titre 0.88rem ≈ 14px, date 0.74rem ≈ 12px → bottom ≈ y=36)
-      y= 44  : connecteur montant (→ y=68)
-      y= 68  : haut du dot (12px, centré à y=74)
-      y= 80  : axe (hauteur 2px)
-      y= 86  : bas du dot / connecteur descendant (→ y=102)
-      y= 83  : tick mensuel (→ y=89), texte y=92
-      y=102  : label en dessous (titre, date → bottom ≈ y=134)
-      y=158  : bas du conteneur
+    Axe à y=88. Dot centré à y=88 (top=82, h=12).
+    Par défaut connecteur court. Si l'événement précédent du même côté est
+    à moins de 20% de largeur, on bascule en connecteur long pour éviter
+    le chevauchement des labels.
+
+    above-court : conn top=74 h=8,  label top=42  (bottom≈74)
+    above-long  : conn top=30 h=52, label top=2   (bottom≈34)
+    below-court : conn top=96 h=8,  label top=104 (bottom≈136)
+    below-long  : conn top=96 h=52, label top=148 (bottom≈180)
+    Tick mensuel : top=91
+    Hauteur conteneur : 190px
   #}
-  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-    <div style="position:relative;min-width:640px;height:158px;">
+  {% set ns = namespace(prev_above=-100, prev_below=-100) %}
+  <div id="tl-scroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch;cursor:grab;scrollbar-width:thin;">
+    <div style="position:relative;width:3000px;height:190px;">
 
       {# ── Axe ── #}
-      <div style="position:absolute;top:80px;left:0;right:24px;height:2px;background:#dbeafe;border-radius:1px;"></div>
-      <div style="position:absolute;top:73px;right:0;width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:18px solid #dbeafe;"></div>
+      <div style="position:absolute;top:88px;left:0;right:24px;height:2px;background:#dbeafe;border-radius:1px;"></div>
+      <div style="position:absolute;top:81px;right:0;width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:18px solid #dbeafe;"></div>
 
       {# ── Repères mensuels ── #}
       {% for m in months %}
-      <div style="position:absolute;top:83px;left:{{ m.pct }}%;transform:translateX(-50%);">
+      <div style="position:absolute;top:91px;left:{{ m.pct }}%;transform:translateX(-50%);">
         <div style="width:1px;height:6px;background:#bfdbfe;margin:0 auto;"></div>
-        <div style="font-size:0.66rem;color:#60a5fa;text-align:center;white-space:nowrap;margin-top:4px;font-weight:600;letter-spacing:-0.01em;">{{ m.label }}</div>
+        <div style="font-size:0.66rem;color:#60a5fa;text-align:center;white-space:nowrap;margin-top:3px;font-weight:600;letter-spacing:-0.01em;">{{ m.label }}</div>
       </div>
       {% endfor %}
 
       {# ── Aujourd'hui ── #}
       {% if today_pct %}
-      <div style="position:absolute;top:58px;left:{{ today_pct }}%;transform:translateX(-50%);z-index:4;">
-        <div style="width:2px;height:36px;background:#f59e0b;margin:0 auto;opacity:0.85;border-radius:1px;"></div>
+      <div style="position:absolute;top:60px;left:{{ today_pct }}%;transform:translateX(-50%);z-index:4;">
+        <div style="width:2px;height:42px;background:#f59e0b;margin:0 auto;opacity:0.85;border-radius:1px;"></div>
         <div style="font-size:0.62rem;color:#f59e0b;font-weight:700;text-align:center;white-space:nowrap;margin-top:3px;">auj.</div>
       </div>
       {% endif %}
@@ -64,37 +67,77 @@
       {# ── Événements ── #}
       {% for e in evts_tl %}
       {% set is_past = e.prochain_creneau[:10] < today %}
-      {% set above   = loop.index0 % 2 == 0 %}
+      {% set above = loop.index0 % 2 == 0 %}
+      {% if above %}{% set far = (e.tl_pct - ns.prev_above) < 20 %}
+      {% else      %}{% set far = (e.tl_pct - ns.prev_below) < 20 %}{% endif %}
       {% if   e.statut == 'annule'  %}{% set dc = '#dc2626' %}{% set tc = '#dc2626' %}
       {% elif is_past               %}{% set dc = '#94a3b8' %}{% set tc = '#94a3b8' %}
       {% elif e.statut == 'confirme'%}{% set dc = '#16a34a' %}{% set tc = '#166534' %}
       {% else                       %}{% set dc = '#1e40af' %}{% set tc = '#1e40af' %}{% endif %}
 
-      {# Dot (centré à y=74, axe à y=80) #}
-      <div style="position:absolute;top:68px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:12px;height:12px;border-radius:50%;background:{{ dc }};border:2px solid white;z-index:3;box-shadow:0 0 0 3px {{ dc }}33;"></div>
+      {# Dot centré à y=88 #}
+      <div style="position:absolute;top:82px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:12px;height:12px;border-radius:50%;background:{{ dc }};border:2px solid white;z-index:3;box-shadow:0 0 0 3px {{ dc }}33;"></div>
 
-      {% if above %}
-        {# Connecteur montant (y=44 → y=68) #}
-        <div style="position:absolute;top:44px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:24px;background:{{ dc }}55;"></div>
-        {# Label au-dessus #}
-        <div style="position:absolute;top:4px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:130px;text-align:center;">
+      {% if above and not far %}
+        {# above-court : conn 74→82, label top=42 #}
+        <div style="position:absolute;top:74px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:8px;background:{{ dc }}55;"></div>
+        <div style="position:absolute;top:42px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:150px;text-align:center;">
+          <div style="font-size:0.84rem;font-weight:700;color:{{ tc }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.titre }}</div>
+          <div style="font-size:0.70rem;color:#94a3b8;margin-top:3px;white-space:nowrap;">{{ (e.date_retenue if e.date_retenue else e.prochain_creneau) | d_court }}</div>
+        </div>
+      {% elif above and far %}
+        {# above-long : conn 30→82, label top=2 #}
+        <div style="position:absolute;top:30px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:52px;background:{{ dc }}55;"></div>
+        <div style="position:absolute;top:2px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:150px;text-align:center;">
+          <div style="font-size:0.84rem;font-weight:700;color:{{ tc }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.titre }}</div>
+          <div style="font-size:0.70rem;color:#94a3b8;margin-top:3px;white-space:nowrap;">{{ (e.date_retenue if e.date_retenue else e.prochain_creneau) | d_court }}</div>
+        </div>
+      {% elif not above and not far %}
+        {# below-court : conn 94→102, label top=104 #}
+        <div style="position:absolute;top:94px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:10px;background:{{ dc }}55;"></div>
+        <div style="position:absolute;top:104px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:150px;text-align:center;">
           <div style="font-size:0.84rem;font-weight:700;color:{{ tc }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.titre }}</div>
           <div style="font-size:0.70rem;color:#94a3b8;margin-top:3px;white-space:nowrap;">{{ (e.date_retenue if e.date_retenue else e.prochain_creneau) | d_court }}</div>
         </div>
       {% else %}
-        {# Connecteur descendant (y=80 → y=102) #}
-        <div style="position:absolute;top:80px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:22px;background:{{ dc }}55;"></div>
-        {# Label en dessous #}
-        <div style="position:absolute;top:102px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:130px;text-align:center;">
+        {# below-long : conn 94→146, label top=148 #}
+        <div style="position:absolute;top:94px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:54px;background:{{ dc }}55;"></div>
+        <div style="position:absolute;top:148px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:150px;text-align:center;">
           <div style="font-size:0.84rem;font-weight:700;color:{{ tc }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.titre }}</div>
           <div style="font-size:0.70rem;color:#94a3b8;margin-top:3px;white-space:nowrap;">{{ (e.date_retenue if e.date_retenue else e.prochain_creneau) | d_court }}</div>
         </div>
       {% endif %}
+
+      {% if above %}{% set ns.prev_above = e.tl_pct %}
+      {% else      %}{% set ns.prev_below = e.tl_pct %}{% endif %}
       {% endfor %}
 
     </div>
   </div>
 </div>
+{% endif %}{# fin if evts_tl #}
+{% if today_pct %}
+<script>
+(function() {
+  var sc = document.getElementById('tl-scroll');
+  if (!sc) return;
+  var TL_W = 3000;
+  sc.scrollLeft = ({{ today_pct }} / 100 * TL_W) - sc.clientWidth / 2;
+
+  var dragging = false, startX, startLeft;
+  sc.addEventListener('mousedown', function(e) {
+    dragging = true; startX = e.pageX; startLeft = sc.scrollLeft;
+    sc.style.cursor = 'grabbing'; sc.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    sc.scrollLeft = startLeft - (e.pageX - startX);
+  });
+  document.addEventListener('mouseup', function() {
+    dragging = false; sc.style.cursor = 'grab'; sc.style.userSelect = '';
+  });
+})();
+</script>
 {% endif %}
 
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
@@ -199,6 +242,17 @@ function editerEvenement(btn) {
   _evtEditId = data.id;
   openModal('Modifier l\'événement', _formEvtHtml(data));
   _initEvtQuill(data.description || '');
+  if (data.statut === 'confirme') {
+    var dh = data.prochain_creneau || data.date_retenue || '';
+    if (dh) {
+      var sep = dh.indexOf('T') >= 0 ? 'T' : ' ';
+      var dhParts = dh.split(sep);
+      var dj = document.getElementById('evt-date-jour');
+      var hs = document.getElementById('evt-heure-sel');
+      if (dj) dj.value = dhParts[0];
+      if (hs && dhParts[1]) hs.value = dhParts[1].substring(0, 5);
+    }
+  }
   fetch('api/parametres/parents').then(function(r){ return r.json(); }).then(function(parents){
     var dl = document.getElementById('modal-parents-datalist');
     if (!dl) return;
@@ -237,7 +291,8 @@ function _formEvtHtml(d) {
       '<p id="evt-mode-desc" style="font-size:0.76rem;color:#64748b;margin:0 0 14px;padding:0 2px;">' + descTxt + '</p>';
   }
 
-  var dateDisplay = (isNew && _evtMode === 'fixe') ? 'block' : 'none';
+  var showDateField = (isNew && _evtMode === 'fixe') || (!isNew && d.statut === 'confirme');
+  var dateDisplay = showDateField ? 'block' : 'none';
 
   html += '<div class="form-grid">' +
     '<div class="form-group form-full"><label>Titre *</label><input type="text" id="evt-titre" value="' + escHtml(d.titre||'') + '" required></div>' +
@@ -248,7 +303,7 @@ function _formEvtHtml(d) {
     '<option value="annule"'        + (d.statut==='annule'       ?' selected':'') + '>Annulé</option>' +
     '</select></div>' +
     '<div class="form-group form-full" id="evt-date-field" style="display:' + dateDisplay + ';">' +
-    '<label>Date et heure *</label>' +
+    '<label>Date <span style="font-size:0.8rem;font-weight:400;color:#64748b;">(heure optionnelle)</span></label>' +
     '<div style="display:flex;gap:8px;">' +
     '<input type="date" id="evt-date-jour" style="flex:1;">' +
     '<select id="evt-heure-sel" style="flex:0 0 108px;">' + _heuresOptions() + '</select>' +
@@ -362,8 +417,8 @@ function saveEvenement() {
   if (!_evtEditId && _evtMode === 'fixe') {
     var dateJour = (document.getElementById('evt-date-jour') || {}).value || '';
     var heureVal = (document.getElementById('evt-heure-sel') || {}).value || '';
-    if (!dateJour || !heureVal) { alert('Veuillez saisir la date et l\'heure.'); return; }
-    var dh = dateJour + 'T' + heureVal;
+    if (!dateJour) { alert('Veuillez saisir la date.'); return; }
+    var dh = heureVal ? dateJour + 'T' + heureVal : dateJour + 'T00:00';
     fetch('api/evenements', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
       .then(function(r){ return r.json(); })
       .then(function(data){
@@ -375,6 +430,12 @@ function saveEvenement() {
           });
       });
   } else {
+    var dfEl = document.getElementById('evt-date-field');
+    if (_evtEditId && dfEl && dfEl.style.display !== 'none') {
+      var dateJour = (document.getElementById('evt-date-jour') || {}).value || '';
+      var heureVal = (document.getElementById('evt-heure-sel') || {}).value || '';
+      if (dateJour) payload.date_heure = heureVal ? dateJour + 'T' + heureVal : dateJour + 'T00:00';
+    }
     var url = _evtEditId ? 'api/evenements/' + _evtEditId : 'api/evenements';
     fetch(url, { method:_evtEditId?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
       .then(function(r){ return r.json(); })

@@ -1,14 +1,24 @@
 {% extends 'base.html' %}
 {% block head %}
 <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
-<style>
-  .ql-toolbar { border-radius: var(--radius) var(--radius) 0 0; border-color: var(--border) !important; background: var(--bg); }
-  .ql-container { border-radius: 0 0 var(--radius) var(--radius); border-color: var(--border) !important; font-family: inherit; font-size: 0.875rem; }
-  .ql-editor { min-height: 80px; max-height: 180px; overflow-y: auto; }
-  .ql-editor.ql-blank::before { color: var(--text-muted); font-style: normal; }
-</style>
 {% endblock %}
 {% block content %}
+<style>
+  .opt-label {
+    display: flex; align-items: center; gap: 12px; cursor: pointer;
+    padding: 14px 16px; border: 2px solid var(--border); border-radius: var(--radius);
+    background: var(--bg); transition: border-color 0.15s, background 0.15s;
+    min-height: 54px;
+  }
+  .opt-label.selected { border-color: var(--primary); background: #eff6ff; }
+  .opt-label input { width: auto; accent-color: var(--primary); flex-shrink: 0; width: 18px; height: 18px; }
+  .opt-label span { font-weight: 600; font-size: 0.95rem; flex: 1; }
+  .bar-track { background: #e2e8f0; border-radius: 4px; height: 10px; overflow: hidden; }
+  .bar-fill  { background: var(--primary); height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+  .admin-panel { background: #f8faff; border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: var(--radius); padding: 16px; margin-bottom: 20px; }
+  .admin-section-title { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+</style>
+
 <div class="page-header">
   <div>
     <h1 class="page-title">🗳️ {{ vote.titre }}</h1>
@@ -21,73 +31,227 @@
       </span>
     </p>
   </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+  <div style="display:flex;gap:8px;">
     <a href="{{ url_for('votes.votes') }}" class="btn btn-secondary btn-sm">← Retour</a>
-    <button onclick="copierLien('{{ url_for("votes.vote_public", token=vote.token, _external=True) }}')" class="btn btn-secondary btn-sm">🔗 Partager</button>
+    <button class="btn btn-secondary btn-sm" title="Commentaires"
+            data-entite="vote" data-eid="{{ vote.id }}" data-titre="{{ vote.titre|e }}" data-prefix="../"
+            onclick="ouvrirCommentairesBtn(this)">💬</button>
+    <button onclick="toggleAdmin()" class="btn btn-secondary btn-sm" id="btn-admin" title="Administrer">✏️</button>
+  </div>
+</div>
+
+<!-- Panneau admin (masqué par défaut) -->
+<div id="admin-panel" class="admin-panel" style="display:none;">
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+    <span style="font-weight:700;font-size:0.85rem;flex:1;">⚙️ Administration</span>
+    <button onclick="copierLien('{{ url_for("votes.vote_public", token=vote.token, _external=True) }}')"
+            class="btn btn-secondary btn-sm">🔗 Partager</button>
     <button onclick="toggleStatut({{ vote.id }}, '{{ vote.statut }}')" class="btn btn-sm"
             style="background:{% if vote.statut=='ouvert' %}#fef3c7;color:#92400e;border:1px solid #fde68a{% else %}#d1fae5;color:#065f46;border:1px solid #a7f3d0{% endif %};">
       {% if vote.statut=='ouvert' %}🔒 Clore{% else %}🟢 Rouvrir{% endif %}
     </button>
   </div>
+
+  <!-- Résultats intermédiaires (quand ouvert) -->
+  {% if vote.statut == 'ouvert' %}
+  <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+    <div class="admin-section-title">Résultats — {{ total_repondants }} réponse(s)</div>
+    {% if options %}
+    {% for opt in options %}
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:3px;">
+        <span style="font-weight:600;">{{ opt.texte }}</span>
+        <span style="color:var(--primary);font-weight:700;">{{ opt.nb_votes }} ({{ opt.pct }}%)</span>
+      </div>
+      <div class="bar-track" style="margin-bottom:6px;"><div class="bar-fill" style="width:{{ opt.pct }}%;"></div></div>
+      {% if opt.votants %}
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+        {% for nom in opt.votants %}
+        <span style="background:#eff6ff;color:var(--primary);border:1px solid #bfdbfe;border-radius:20px;padding:2px 8px;font-size:0.72rem;font-weight:600;">{{ nom }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <p style="font-size:0.82rem;color:var(--text-muted);margin:0;">Aucune option définie.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Options -->
+  <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+    <div class="admin-section-title">Options</div>
+    {% if options %}
+    {% for opt in options %}
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f1f5f9;">
+      <span style="flex:1;font-size:0.85rem;">{{ opt.texte }}</span>
+      <span style="font-size:0.75rem;color:var(--text-muted);">{{ opt.nb_votes }} vote(s)</span>
+      <button onclick="supprimerOption({{ opt.id }})" class="btn btn-sm"
+              style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;padding:2px 6px;font-size:0.7rem;">🗑</button>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p style="font-size:0.82rem;color:var(--text-muted);margin:0;">Aucune option.</p>
+    {% endif %}
+    <button onclick="ouvrirAjoutOption({{ vote.id }})" class="btn btn-secondary btn-sm" style="margin-top:10px;">+ Ajouter une option</button>
+  </div>
+
+  <!-- Répondants -->
+  {% if repondants %}
+  <div>
+    <div class="admin-section-title">Répondants ({{ repondants|length }})</div>
+    {% for nom in repondants %}
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f1f5f9;">
+      <span style="flex:1;font-size:0.85rem;font-weight:600;">{{ nom }}</span>
+      <button onclick="supprimerRepondant('{{ nom|replace("'", "\\'") }}', {{ vote.id }})"
+              class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;font-size:0.7rem;">✕</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div>
+    <div class="admin-section-title">Répondants</div>
+    <p style="font-size:0.82rem;color:var(--text-muted);margin:0;">Personne n'a encore répondu.</p>
+  </div>
+  {% endif %}
+
 </div>
 
-{% if vote.description %}
-<div class="card" style="margin-bottom:16px;padding:14px 16px;">
-  <p style="margin:0;color:var(--text-muted);font-size:0.9rem;">{{ vote.description }}</p>
+{% if vote.statut == 'ouvert' %}
+
+<!-- ═══ SONDAGE OUVERT ═══ -->
+<div class="card" style="margin-bottom:20px;overflow:hidden;">
+
+  <!-- CTA -->
+  <div id="cta-zone" style="padding:40px 24px;text-align:center;background:linear-gradient(135deg,#eff6ff 0%,#f0fdf4 100%);">
+    <div style="font-size:3rem;margin-bottom:12px;">🗳️</div>
+    {% if vote.description %}
+    <p style="color:var(--text-muted);font-size:0.92rem;margin:0 0 24px;max-width:400px;margin-left:auto;margin-right:auto;line-height:1.6;">{{ vote.description }}</p>
+    {% endif %}
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <button onclick="afficherForm()" class="btn btn-primary"
+              style="font-size:1.1rem;padding:16px 40px;border-radius:12px;min-width:200px;">
+        ✋ Participer
+      </button>
+      {% if total_repondants > 0 %}
+      <button onclick="toggleAdmin()" class="btn btn-secondary"
+              style="font-size:1.1rem;padding:16px 24px;border-radius:12px;">
+        📊 Résultats
+      </button>
+      {% endif %}
+    </div>
+    {% if total_repondants > 0 %}
+    <p style="margin:16px 0 0;font-size:0.8rem;color:var(--text-muted);">
+      {{ total_repondants }} personne{% if total_repondants > 1 %}s ont{% else %} a{% endif %} déjà répondu
+    </p>
+    {% else %}
+    <p style="margin:16px 0 0;font-size:0.8rem;color:var(--text-muted);">Soyez le premier à répondre !</p>
+    {% endif %}
+  </div>
+
+  <!-- Formulaire -->
+  <div id="form-zone" style="display:none;padding:24px;">
+    <div style="margin-bottom:16px;">
+      <label style="font-weight:700;font-size:0.88rem;display:block;margin-bottom:7px;">Votre prénom et nom *</label>
+      <input type="text" id="part-nom" placeholder="Ex : Marie Dupont" autofocus
+             style="max-width:100%;font-size:1rem;padding:12px 14px;">
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="font-weight:700;font-size:0.88rem;display:block;margin-bottom:10px;">
+        {% if vote.type == 'multiple' %}Vos choix (plusieurs possibles) :{% else %}Votre choix :{% endif %}
+      </label>
+      {% if options %}
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        {% for opt in options %}
+        <label class="opt-label" onclick="selectOpt(this)">
+          <input type="{% if vote.type == 'multiple' %}checkbox{% else %}radio{% endif %}"
+                 name="part-opt" class="part-opt" data-oid="{{ opt.id }}">
+          <span>{{ opt.texte }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="color:var(--text-muted);font-size:0.88rem;">Aucune option — ajoutez-en via ✏️.</p>
+      {% endif %}
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="annulerForm()" class="btn btn-secondary" style="flex:1;">Annuler</button>
+      <button onclick="soumettre({{ vote.id }})" class="btn btn-primary" style="flex:2;font-size:1rem;">Envoyer mon choix →</button>
+    </div>
+  </div>
+
+  <!-- Confirmation -->
+  <div id="merci-zone" style="display:none;padding:40px 24px;text-align:center;background:linear-gradient(135deg,#f0fdf4 0%,#eff6ff 100%);">
+    <div style="font-size:3.5rem;margin-bottom:12px;">✅</div>
+    <h2 style="font-size:1.15rem;font-weight:800;margin:0 0 8px;">Merci <span id="merci-nom" style="color:var(--primary);"></span>&nbsp;!</h2>
+    <p style="color:var(--text-muted);margin:0 0 24px;font-size:0.9rem;">Votre réponse a bien été enregistrée.</p>
+    <button onclick="voirResultats()" class="btn btn-primary">📊 Voir les résultats</button>
+  </div>
+
+</div>
+
+{% else %}
+
+<!-- ═══ SONDAGE CLOS ═══ -->
+{% if option_retenue %}
+<div class="card" style="margin-bottom:16px;padding:18px 20px;background:#f0fdf4;border:1px solid #bbf7d0;">
+  <div style="display:flex;align-items:center;gap:14px;">
+    <span style="font-size:2rem;line-height:1;">✅</span>
+    <div>
+      <div style="font-size:0.7rem;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Choix retenu</div>
+      <div style="font-size:1.2rem;font-weight:800;color:#166534;">{{ option_retenue.texte }}</div>
+    </div>
+  </div>
 </div>
 {% endif %}
 
-<!-- Résultats -->
 <div class="card" style="margin-bottom:20px;">
-  <div class="card-header" style="margin-bottom:16px;">
+  <div class="card-header" style="margin-bottom:18px;">
     <span class="card-title">📊 Résultats</span>
     <span style="font-size:0.85rem;color:var(--text-muted);">{{ total_repondants }} répondant(s)</span>
   </div>
   {% if options %}
   {% for opt in options %}
-  <div style="margin-bottom:14px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <button onclick="supprimerOption({{ opt.id }})" class="btn btn-sm"
-                style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;padding:2px 6px;font-size:0.7rem;line-height:1;">🗑</button>
-        <span style="font-weight:600;font-size:0.9rem;">{{ opt.texte }}</span>
-      </div>
-      <span style="font-size:0.85rem;font-weight:700;color:var(--primary);">{{ opt.nb_votes }} ({{ opt.pct }}%)</span>
+  <div style="margin-bottom:18px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span style="font-weight:700;font-size:0.9rem;">{{ opt.texte }}</span>
+      <span style="font-size:0.88rem;font-weight:700;color:var(--primary);">{{ opt.nb_votes }} — {{ opt.pct }}%</span>
     </div>
-    <div style="background:#e2e8f0;border-radius:4px;height:10px;overflow:hidden;">
-      <div style="background:var(--primary);height:100%;width:{{ opt.pct }}%;border-radius:4px;transition:width 0.3s;"></div>
+    <div class="bar-track" style="margin-bottom:7px;"><div class="bar-fill" style="width:{{ opt.pct }}%;"></div></div>
+    {% if opt.votants %}
+    <div style="display:flex;flex-wrap:wrap;gap:5px;">
+      {% for nom in opt.votants %}
+      <span style="background:#eff6ff;color:var(--primary);border:1px solid #bfdbfe;border-radius:20px;padding:3px 10px;font-size:0.78rem;font-weight:600;">{{ nom }}</span>
+      {% endfor %}
     </div>
+    {% endif %}
   </div>
   {% endfor %}
-  <button onclick="ouvrirAjoutOption({{ vote.id }})" class="btn btn-secondary btn-sm" style="margin-top:8px;">+ Ajouter une option</button>
   {% else %}
   <p class="empty-msg">Aucune option définie.</p>
   {% endif %}
 </div>
 
-<!-- Liste des répondants -->
 {% if repondants %}
-<div class="card">
+<div class="card" style="margin-bottom:20px;">
   <div class="card-header" style="margin-bottom:12px;">
     <span class="card-title">👥 Répondants</span>
+    <span style="background:#eff6ff;color:var(--primary);border:1px solid #bfdbfe;border-radius:20px;padding:2px 10px;font-size:0.78rem;font-weight:700;">{{ repondants|length }}</span>
   </div>
-  {% for nom in repondants %}
-  <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
-    <span style="flex:1;font-size:0.88rem;font-weight:600;">{{ nom }}</span>
-    <button onclick="supprimerRepondant('{{ nom|replace("'", "\\'") }}', {{ vote.id }})"
-            class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;font-size:0.7rem;">✕ Retirer</button>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;">
+    {% for nom in repondants %}
+    <span style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:20px;padding:5px 12px;font-size:0.85rem;font-weight:600;">{{ nom }}</span>
+    {% endfor %}
   </div>
-  {% endfor %}
-</div>
-{% elif options %}
-<div class="card" style="text-align:center;padding:28px 20px;">
-  <p class="empty-msg">Personne n'a encore répondu. Partagez le lien public !</p>
-  <button onclick="copierLien('{{ url_for("votes.vote_public", token=vote.token, _external=True) }}')" class="btn btn-primary" style="margin-top:12px;">🔗 Copier le lien</button>
 </div>
 {% endif %}
 
+{% endif %}
+
 <!-- Commentaires -->
-<div class="card" style="margin-top:20px;">
+<div class="card" style="margin-bottom:20px;">
   <div class="card-header" style="margin-bottom:14px;">
     <span class="card-title">💬 Commentaires</span>
   </div>
@@ -106,35 +270,122 @@
   </div>
 </div>
 
-<!-- Toast -->
-<div id="toast-lien" style="display:none;position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
-     background:#1e293b;color:#fff;padding:10px 20px;border-radius:8px;font-size:0.85rem;z-index:9999;">
-  ✅ Lien copié !
-</div>
 {% endblock %}
-
 {% block scripts %}
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script>
+var _nomParticipant = '';
+
+function toggleAdmin() {
+  var p = document.getElementById('admin-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
 function toggleStatut(id, statut) {
-  var msg = statut === 'ouvert' ? 'Clore ce sondage ?' : 'Rouvrir ce sondage ?';
-  if (!confirm(msg)) return;
-  fetch('api/votes/' + id + '/statut', { method: 'PUT' })
-    .then(function(){ location.reload(); });
+  if (statut !== 'ouvert') {
+    if (!confirm('Rouvrir ce sondage ?')) return;
+    fetch('../api/votes/' + id + '/statut', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) })
+      .then(function(){ location.reload(); });
+    return;
+  }
+  var opts = {{ options | tojson }};
+  if (!opts.length) {
+    if (!confirm('Clore ce sondage ?')) return;
+    fetch('../api/votes/' + id + '/statut', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) })
+      .then(function(){ location.reload(); });
+    return;
+  }
+  var best = opts.reduce(function(a, b){ return b.nb_votes > a.nb_votes ? b : a; }, opts[0]);
+  var selectHtml = '<select id="choix-retenu" style="width:100%;margin-top:6px;">';
+  opts.forEach(function(o) {
+    selectHtml += '<option value="' + o.id + '"' + (o.id === best.id ? ' selected' : '') + '>' +
+      escHtml(o.texte) + ' — ' + o.nb_votes + ' vote(s)</option>';
+  });
+  selectHtml += '</select>';
+  openModal('Clore le sondage',
+    '<p style="color:var(--text-muted);font-size:0.9rem;margin:0 0 14px;">Quel est le choix retenu ?</p>' +
+    '<div class="form-group">' + selectHtml + '</div>' +
+    '<div class="form-actions">' +
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+    '<button type="button" class="btn btn-primary" onclick="confirmerCloture(' + id + ')">🔒 Clore</button>' +
+    '</div>'
+  );
+}
+
+function confirmerCloture(id) {
+  var sel = document.getElementById('choix-retenu');
+  var optionId = sel ? parseInt(sel.value) : null;
+  fetch('../api/votes/' + id + '/statut', {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({option_retenue_id: optionId})
+  }).then(function(){ closeModal(); location.reload(); });
+}
+
+function afficherForm() {
+  document.getElementById('cta-zone').style.display = 'none';
+  document.getElementById('form-zone').style.display = 'block';
+  var n = document.getElementById('part-nom');
+  if (n) n.focus();
+}
+
+function annulerForm() {
+  document.getElementById('form-zone').style.display = 'none';
+  document.getElementById('cta-zone').style.display = 'block';
+  document.getElementById('part-nom').value = '';
+  document.querySelectorAll('.part-opt').forEach(function(el){ el.checked = false; });
+  document.querySelectorAll('.opt-label').forEach(function(l){ l.classList.remove('selected'); });
+}
+
+function selectOpt(label) {
+  setTimeout(function() {
+    document.querySelectorAll('.part-opt').forEach(function(input) {
+      var lbl = input.closest('.opt-label');
+      if (lbl) lbl.classList.toggle('selected', input.checked);
+    });
+  }, 0);
+}
+
+function soumettre(vid) {
+  var nom = (document.getElementById('part-nom').value || '').trim();
+  if (!nom) { alert('Veuillez saisir votre prénom et nom.'); return; }
+  var oids = [];
+  document.querySelectorAll('.part-opt:checked').forEach(function(el){
+    oids.push(parseInt(el.getAttribute('data-oid')));
+  });
+  if (oids.length === 0) { alert('Veuillez sélectionner au moins une option.'); return; }
+  _nomParticipant = nom;
+  fetch('../api/votes/' + vid + '/repondre', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({nom: nom, option_ids: oids})
+  }).then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data.ok) {
+        document.getElementById('form-zone').style.display = 'none';
+        document.getElementById('merci-zone').style.display = 'block';
+        var el = document.getElementById('merci-nom');
+        if (el) el.textContent = _nomParticipant.split(' ')[0];
+      } else {
+        alert(data.error || 'Erreur lors de l\'envoi.');
+      }
+    });
+}
+
+function voirResultats() {
+  location.href = location.pathname + '?admin=1';
 }
 
 function ouvrirAjoutOption(vid) {
   openModal('Ajouter une option',
-    '<div class="form-group"><label>Texte de l\'option *</label><input type="text" id="new-opt-texte" placeholder="Ex : Oui" autofocus></div>' +
+    '<div class="form-group"><label>Texte de l\'option *</label>' +
+    '<input type="text" id="new-opt-texte" placeholder="Ex : Mercredi 15 juin" autofocus></div>' +
     '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
-    '<button type="button" class="btn btn-primary" onclick="saveOption(' + vid + ')">Ajouter</button></div>'
-  );
+    '<button type="button" class="btn btn-primary" onclick="saveOption(' + vid + ')">Ajouter</button></div>');
 }
 
 function saveOption(vid) {
   var texte = (document.getElementById('new-opt-texte').value || '').trim();
   if (!texte) { alert('Texte obligatoire.'); return; }
-  fetch('api/votes/' + vid + '/options', {
+  fetch('../api/votes/' + vid + '/options', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({texte: texte})
   }).then(function(){ closeModal(); location.reload(); });
@@ -142,13 +393,17 @@ function saveOption(vid) {
 
 function supprimerOption(oid) {
   if (!confirm('Supprimer cette option et ses réponses associées ?')) return;
-  fetch('api/votes/options/' + oid, { method: 'DELETE' }).then(function(){ location.reload(); });
+  fetch('../api/votes/options/' + oid, { method: 'DELETE' }).then(function(){ location.reload(); });
 }
 
 function supprimerRepondant(nom, vid) {
   if (!confirm('Retirer les réponses de "' + nom + '" ?')) return;
-  fetch('api/votes/' + vid + '/repondants/' + encodeURIComponent(nom), { method: 'DELETE' })
+  fetch('../api/votes/' + vid + '/repondants/' + encodeURIComponent(nom), { method: 'DELETE' })
     .then(function(){ location.reload(); });
+}
+
+if (new URLSearchParams(location.search).get('admin') === '1') {
+  document.getElementById('admin-panel').style.display = 'block';
 }
 
 initCommentairesInline('vote', {{ vote.id }}, '../');

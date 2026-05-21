@@ -48,7 +48,9 @@ def evenements():
     today_dt = datetime.now().date()
     today = today_dt.strftime('%Y-%m-%d')
 
-    # Année scolaire : 1er sept → 30 juin
+    from datetime import timedelta
+
+    # Année scolaire complète : 1er sept → 30 juin
     y = today_dt.year if today_dt.month >= 9 else today_dt.year - 1
     sy_start = date(y, 9, 1)
     sy_end   = date(y + 1, 6, 30)
@@ -59,7 +61,7 @@ def evenements():
             return None
         try:
             d = datetime.fromisoformat(s[:10]).date()
-            return round(max(2.0, min(96.0, (d - sy_start).days / span * 100)), 1)
+            return round(max(0.2, min(99.8, (d - sy_start).days / span * 100)), 1)
         except Exception:
             return None
 
@@ -69,7 +71,7 @@ def evenements():
     for i, m in enumerate([9, 10, 11, 12, 1, 2, 3, 4, 5, 6]):
         yr = y if m >= 9 else y + 1
         d = date(yr, m, 1)
-        months.append({'label': _LABELS[i], 'pct': round(max(1.0, (d - sy_start).days / span * 100), 1)})
+        months.append({'label': _LABELS[i], 'pct': round(max(0.2, (d - sy_start).days / span * 100), 1)})
 
     today_pct = to_pct(today)
     for e in evenements:
@@ -167,6 +169,18 @@ def api_update_evenement(eid):
         (data.get('titre', ''), data.get('description', ''),
          data.get('lieu', ''), data.get('statut', 'planification'), eid)
     )
+    date_heure = (data.get('date_heure') or '').strip()
+    if date_heure:
+        cids = [r['id'] for r in db.execute(
+            "SELECT id FROM evenement_creneaux WHERE evenement_id=?", (eid,)
+        ).fetchall()]
+        for cid in cids:
+            db.execute("DELETE FROM evenement_disponibilites WHERE creneau_id=?", (cid,))
+        db.execute("DELETE FROM evenement_creneaux WHERE evenement_id=?", (eid,))
+        db.execute(
+            "INSERT INTO evenement_creneaux (evenement_id, date_heure) VALUES (?,?)",
+            (eid, date_heure)
+        )
     db.commit()
     db.close()
     return jsonify({"ok": True})

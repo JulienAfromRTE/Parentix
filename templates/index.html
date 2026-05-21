@@ -79,12 +79,15 @@
     <a href="{{ url_for('taches.taches') }}" class="btn btn-secondary btn-sm">Voir tout</a>
   </div>
   {% for t in taches_a_venir %}
-  <div style="padding:9px 0;border-bottom:1px solid var(--border);">
+  <a href="{{ url_for('taches.taches') }}" style="display:block;padding:9px 0;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#f8faff'" onmouseout="this.style.background=''">
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;">
       <span style="font-weight:600;font-size:0.88rem;">{{ t.titre }}</span>
       {% if t.porteur_nom %}
       <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;padding:2px 7px;border-radius:12px;font-weight:600;background:#dbeafe;color:#1e40af;white-space:nowrap;">👤 {{ t.porteur_nom }}</span>
       {% endif %}
+      {% for c in t.contributeurs_noms %}
+      <span style="font-size:0.7rem;padding:2px 7px;border-radius:12px;background:#f1f5f9;color:#475569;font-weight:500;white-space:nowrap;">{{ c }}</span>
+      {% endfor %}
       {% if t.date_echeance %}
       <span style="font-size:0.7rem;padding:2px 7px;border-radius:4px;font-weight:600;white-space:nowrap;
                    background:{% if t.date_echeance < today and t.statut != 'clos' %}#fee2e2{% elif t.date_echeance == today and t.statut != 'clos' %}#fff7ed{% else %}#eff6ff{% endif %};
@@ -101,7 +104,7 @@
         {{ 'En cours' if t.statut=='en_cours' else 'Nouveau' }}
       </span>
     </div>
-  </div>
+  </a>
   {% endfor %}
 </div>
 {% endif %}
@@ -117,26 +120,34 @@
     {% for e in prochains_evenements %}
     <div class="timeline-item">
       <div class="timeline-dot {% if e.statut == 'confirme' %}timeline-dot-green{% elif e.statut == 'annule' %}timeline-dot-red{% else %}timeline-dot-blue{% endif %}"></div>
-      <div class="timeline-content">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
-          <div style="flex:1;min-width:0;">
-            <a href="{{ url_for('evenements.evenement_detail', eid=e.id) }}" style="font-weight:700;font-size:0.95rem;color:var(--primary);text-decoration:none;">{{ e.titre }}</a>
-            {% if e.lieu %}<div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">📍 {{ e.lieu }}</div>{% endif %}
+      <a href="{{ url_for('evenements.evenement_detail', eid=e.id) }}" style="display:block;text-decoration:none;color:inherit;" onmouseover="this.parentElement.style.background='#f0f6ff'" onmouseout="this.parentElement.style.background=''">
+      <div class="timeline-content" style="cursor:pointer;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-weight:700;font-size:0.95rem;color:var(--primary);">{{ e.titre }}</span>
             {% if e.prochain_creneau %}
-            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">
-              🕐 {{ e.prochain_creneau[:10] if e.prochain_creneau else '—' }}
-              {% if e.nb_creneaux > 1 %} + {{ e.nb_creneaux - 1 }} autre(s) créneau(x){% endif %}
-            </div>
+            <span style="font-size:0.72rem;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:2px 8px;border-radius:99px;font-weight:600;white-space:nowrap;">
+              📅 {{ e.prochain_creneau[8:10] }}/{{ e.prochain_creneau[5:7] }}/{{ e.prochain_creneau[:4] }}{% if e.prochain_creneau[10:16] and e.prochain_creneau[11:16] != '00:00' %} · {{ e.prochain_creneau[11:16] }}{% endif %}{% if e.nb_creneaux > 1 %} +{{ e.nb_creneaux - 1 }}{% endif %}
+            </span>
             {% endif %}
           </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+          <div style="flex-shrink:0;display:flex;align-items:center;gap:6px;">
+            {% if e.lieu %}<span style="font-size:0.72rem;color:var(--text-muted);">📍 {{ e.lieu }}</span>{% endif %}
             <span class="badge badge-evt-{{ e.statut }}">{{ e.statut.replace('_', ' ') }}</span>
-            {% if e.nb_reponses %}
-            <span style="font-size:0.72rem;color:var(--text-muted);">{{ e.nb_reponses }} réponse(s)</span>
-            {% endif %}
           </div>
         </div>
+        {% if e.participants %}
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:6px;">
+          {% for p in e.participants[:4] %}
+          <span style="font-size:0.73rem;background:#eff6ff;color:#1e40af;padding:2px 9px;border-radius:99px;border:1px solid #bfdbfe;font-weight:500;">{{ p }}</span>
+          {% endfor %}
+          {% if e.participants|length > 4 %}
+          <span style="font-size:0.73rem;background:#f1f5f9;color:#64748b;padding:2px 9px;border-radius:99px;">+{{ e.participants|length - 4 }}</span>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
+      </a>
     </div>
     {% endfor %}
   </div>

@@ -245,7 +245,7 @@ function _formParentHtml(d) {
     _classes.map(function(c){ var label = c.nom + (c.niveau ? ' — ' + c.niveau : ''); return '<option value="'+c.id+'"'+(d.classe_id==c.id?' selected':'')+'>'+escHtml(label)+'</option>'; }).join('');
   return '<div class="form-grid">' +
     '<div class="form-group"><label>Prénom *</label><input type="text" id="par-prenom" value="'+escHtml(d.prenom||'')+'" required></div>' +
-    '<div class="form-group"><label>Nom *</label><input type="text" id="par-nom" value="'+escHtml(d.nom||'')+'" required></div>' +
+    '<div class="form-group"><label>Nom</label><input type="text" id="par-nom" value="'+escHtml(d.nom||'')+'"></div>' +
     '<div class="form-group"><label>Email</label><input type="email" id="par-email" value="'+escHtml(d.email||'')+'"></div>' +
     '<div class="form-group"><label>Téléphone</label><input type="tel" id="par-tel" value="'+escHtml(d.telephone||'')+'"></div>' +
     '<div class="form-group"><label>Classe</label><select id="par-classe">'+classeOpts+'</select></div>' +
@@ -258,7 +258,7 @@ function _formParentHtml(d) {
 function saveParent() {
   var prenom = document.getElementById('par-prenom').value.trim();
   var nom = document.getElementById('par-nom').value.trim();
-  if (!prenom || !nom) { alert('Prénom et nom obligatoires.'); return; }
+  if (!prenom) { alert('Le prénom est obligatoire.'); return; }
   var classeVal = document.getElementById('par-classe').value;
   var payload = {
     prenom: prenom, nom: nom,

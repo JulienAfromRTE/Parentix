@@ -38,20 +38,28 @@ def vote_detail(vid):
 
     options = []
     for opt in options_raw:
-        nb = db.execute(
-            "SELECT COUNT(DISTINCT nom) as c FROM vote_reponses WHERE vote_id=? AND option_id=?",
+        votants = db.execute(
+            "SELECT DISTINCT nom FROM vote_reponses WHERE vote_id=? AND option_id=? ORDER BY nom ASC",
             (vid, opt['id'])
-        ).fetchone()['c']
+        ).fetchall()
+        nb = len(votants)
         pct = round(nb * 100 / total_repondants) if total_repondants > 0 else 0
         options.append({'id': opt['id'], 'texte': opt['texte'], 'ordre': opt['ordre'],
-                        'nb_votes': nb, 'pct': pct})
+                        'nb_votes': nb, 'pct': pct, 'votants': [r['nom'] for r in votants]})
+
+    option_retenue = None
+    if vote['option_retenue_id']:
+        r = db.execute("SELECT * FROM vote_options WHERE id=?", (vote['option_retenue_id'],)).fetchone()
+        if r:
+            option_retenue = dict(r)
 
     db.close()
     return render_template('vote_detail.html',
         vote=dict(vote),
         options=options,
         repondants=[r['nom'] for r in repondants],
-        total_repondants=total_repondants)
+        total_repondants=total_repondants,
+        option_retenue=option_retenue)
 
 
 @bp.route('/votes/p/<token>')
@@ -125,13 +133,18 @@ def api_delete_vote(vid):
 
 @bp.route('/api/votes/<int:vid>/statut', methods=['PUT'])
 def api_toggle_statut(vid):
+    data = request.json or {}
     db = get_db()
     vote = db.execute("SELECT statut FROM votes WHERE id=?", (vid,)).fetchone()
     if not vote:
         db.close()
         return jsonify({"ok": False}), 404
     new_statut = 'clos' if vote['statut'] == 'ouvert' else 'ouvert'
-    db.execute("UPDATE votes SET statut=? WHERE id=?", (new_statut, vid))
+    if new_statut == 'clos':
+        db.execute("UPDATE votes SET statut=?, option_retenue_id=? WHERE id=?",
+                   (new_statut, data.get('option_retenue_id'), vid))
+    else:
+        db.execute("UPDATE votes SET statut=?, option_retenue_id=NULL WHERE id=?", (new_statut, vid))
     db.commit()
     db.close()
     return jsonify({"ok": True, "statut": new_statut})

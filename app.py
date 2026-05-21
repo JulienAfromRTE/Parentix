@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 APP_NAME    = "Parentix"
 APP_SLUG    = "parentix"
-APP_RELEASE = "v1.4"
+APP_RELEASE = "v1.5"
 APP_DESCRIPTION = "Pilotage de l'association FCPE : taches, depenses, recettes, evenements, kermesse"
 APP_ICON    = "🏫"
 APP_COLOR   = "#1e40af"
 APP_CATEGORY = ""
 
-import os, time, logging
+import os, time, logging, json
 from flask import Flask, render_template, jsonify, session, redirect, url_for, request, make_response, send_from_directory
 from functools import wraps
 from db import init_db, get_db
@@ -80,7 +80,8 @@ def format_dh_fr(s):
     try:
         from datetime import datetime
         dt = datetime.fromisoformat(s[:16])
-        return f"{dt.day} {_MOIS_FR[dt.month-1]} {dt.year} · {dt.hour:02d}h{dt.minute:02d}"
+        time_part = f" · {dt.hour:02d}h{dt.minute:02d}" if dt.hour or dt.minute else ''
+        return f"{dt.day} {_MOIS_FR[dt.month-1]} {dt.year}{time_part}"
     except Exception:
         return s[:16].replace('T', ' ')
 
@@ -169,7 +170,7 @@ def index():
     nb_evenements = db.execute("SELECT COUNT(*) as c FROM evenements WHERE statut != 'annule'").fetchone()['c']
     nb_votes_ouverts = db.execute("SELECT COUNT(*) as c FROM votes WHERE statut = 'ouvert'").fetchone()['c']
 
-    taches_a_venir = db.execute(
+    taches_a_venir_rows = db.execute(
         """SELECT t.*, p.prenom || ' ' || SUBSTR(p.nom, 1, 1) || '.' as porteur_nom
            FROM taches t
            LEFT JOIN parents p ON p.id = t.porteur_id
@@ -177,6 +178,16 @@ def index():
            ORDER BY t.important DESC, t.date_echeance ASC NULLS LAST, t.created_at DESC
            LIMIT 7"""
     ).fetchall()
+    parents_map = {r['id']: r['prenom'] + ' ' + r['nom'][:1] + '.' for r in db.execute("SELECT id, prenom, nom FROM parents").fetchall()}
+    taches_a_venir = []
+    for _t in taches_a_venir_rows:
+        _td = dict(_t)
+        try:
+            _ids = json.loads(_td.get('contributeurs') or '[]')
+        except Exception:
+            _ids = []
+        _td['contributeurs_noms'] = [parents_map[pid] for pid in _ids if pid in parents_map]
+        taches_a_venir.append(_td)
 
     prochains_evenements_raw = db.execute(
         """SELECT e.*,
@@ -191,6 +202,11 @@ def index():
            LIMIT 5"""
     ).fetchall()
     prochains_evenements = [dict(r) for r in prochains_evenements_raw]
+    evt_parts = {}
+    for r in db.execute("SELECT evenement_id, nom FROM evenement_participants ORDER BY nom ASC").fetchall():
+        evt_parts.setdefault(r['evenement_id'], []).append(r['nom'])
+    for e in prochains_evenements:
+        e['participants'] = evt_parts.get(e['id'], [])
 
     depenses_recentes = db.execute(
         "SELECT * FROM depenses ORDER BY date_depense DESC, created_at DESC LIMIT 5"

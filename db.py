@@ -179,6 +179,12 @@ def init_db():
             pass
 
     try:
+        db.execute("ALTER TABLE votes ADD COLUMN option_retenue_id INTEGER")
+        db.commit()
+    except Exception:
+        pass
+
+    try:
         db.execute("ALTER TABLE evenements ADD COLUMN token TEXT")
         db.commit()
     except Exception:

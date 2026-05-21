@@ -254,6 +254,11 @@ small { font-size: 0.8em; }
   .timeline-dot { left: -16px; }
 }
 
+/* ─── RICH TEXT CONTENT ─── */
+.rich-content p { margin: 0 0 0.2em; }
+.rich-content ul, .rich-content ol { margin: 0 0 0.2em; padding-left: 1.4em; }
+.rich-content p:last-child { margin-bottom: 0; }
+
 /* ─── COMMENTAIRES ─── */
 .cm-content p { margin: 0 0 0.25em; }
 .cm-content ul, .cm-content ol { margin: 0 0 0.25em; padding-left: 1.4em; }

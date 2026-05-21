@@ -11,29 +11,43 @@
 {% if votes %}
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
   {% for v in votes %}
-  <div class="card" style="padding:16px;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px;">
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:700;font-size:1rem;margin-bottom:4px;">{{ v.titre }}</div>
-        {% if v.description %}<div style="font-size:0.78rem;color:var(--text-muted);">{{ v.description[:80] }}{% if v.description|length > 80 %}…{% endif %}</div>{% endif %}
+  <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column;">
+
+    <!-- Bande statut -->
+    <div style="height:4px;background:{% if v.statut=='ouvert' %}#34d399{% else %}#cbd5e1{% endif %};"></div>
+
+    <div style="padding:16px;flex:1;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:800;font-size:1rem;line-height:1.3;margin-bottom:4px;">{{ v.titre }}</div>
+          {% if v.description %}
+          <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.4;">{{ v.description[:90] }}{% if v.description|length > 90 %}…{% endif %}</div>
+          {% endif %}
+        </div>
+        <span style="flex-shrink:0;padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:700;
+                     background:{% if v.statut=='ouvert' %}#d1fae5{% else %}#f1f5f9{% endif %};
+                     color:{% if v.statut=='ouvert' %}#065f46{% else %}#475569{% endif %};">
+          {% if v.statut=='ouvert' %}🟢 Ouvert{% else %}🔒 Clos{% endif %}
+        </span>
       </div>
-      <span style="flex-shrink:0;padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:700;
-                   background:{% if v.statut=='ouvert' %}#d1fae5{% else %}#f1f5f9{% endif %};
-                   color:{% if v.statut=='ouvert' %}#065f46{% else %}#475569{% endif %};">
-        {% if v.statut=='ouvert' %}🟢 Ouvert{% else %}🔒 Clos{% endif %}
-      </span>
+
+      <div style="display:flex;gap:14px;font-size:0.78rem;color:var(--text-muted);margin-bottom:14px;">
+        <span>📋 {{ v.nb_options }} option(s)</span>
+        <span>👥 {{ v.nb_repondants }} réponse(s)</span>
+      </div>
+
+      <div style="display:flex;gap:6px;">
+        <a href="{{ url_for('votes.vote_detail', vid=v.id) }}" class="btn btn-sm"
+           style="flex:1;justify-content:center;{% if v.statut=='ouvert' %}background:var(--primary);color:#fff;border-color:var(--primary);{% endif %}">
+          {% if v.statut=='ouvert' %}✋ Participer{% else %}📊 Résultats{% endif %}
+        </a>
+        <button onclick="copierLien('{{ url_for("votes.vote_public", token=v.token, _external=True) }}')" class="btn btn-secondary btn-sm" title="Copier le lien de partage">🔗</button>
+        <button onclick="editerVote(this)" data-vote='{{ v|tojson }}' class="btn btn-secondary btn-sm" title="Modifier">✏️</button>
+        <button onclick="supprimerVote({{ v.id }})" class="btn btn-sm" title="Supprimer"
+                style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
+      </div>
     </div>
-    <div style="display:flex;gap:12px;font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;">
-      <span>📋 {{ v.nb_options }} option(s)</span>
-      <span>👥 {{ v.nb_repondants }} réponse(s)</span>
-      <span>{% if v.type == 'multiple' %}☑️ Choix multiples{% else %}🔘 Choix unique{% endif %}</span>
-    </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <a href="{{ url_for('votes.vote_detail', vid=v.id) }}" class="btn btn-primary btn-sm" style="flex:1;justify-content:center;">📊 Résultats</a>
-      <button onclick="copierLien('{{ url_for("votes.vote_public", token=v.token, _external=True) }}')" class="btn btn-secondary btn-sm">🔗 Partager</button>
-      <button onclick="editerVote(this)" data-vote='{{ v|tojson }}' class="btn btn-secondary btn-sm">✏️</button>
-      <button onclick="supprimerVote({{ v.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
-    </div>
+
   </div>
   {% endfor %}
 </div>
@@ -70,7 +84,7 @@ function editerVote(btn) {
 function _formVoteHtml(d, avecOptions) {
   var html = '<div class="form-grid">' +
     '<div class="form-group form-full"><label>Titre *</label><input type="text" id="vote-titre" value="' + escHtml(d.titre || '') + '" required></div>' +
-    '<div class="form-group form-full"><label>Description</label><textarea id="vote-desc" rows="2">' + escHtml(d.description || '') + '</textarea></div>' +
+    '<div class="form-group form-full"><label>Description</label><textarea id="vote-desc" rows="5" style="resize:vertical;">' + escHtml(d.description || '') + '</textarea></div>' +
     '<div class="form-group"><label>Type de vote</label><select id="vote-type">' +
     '<option value="unique"' + (d.type === 'unique' || !d.type ? ' selected' : '') + '>🔘 Choix unique</option>' +
     '<option value="multiple"' + (d.type === 'multiple' ? ' selected' : '') + '>☑️ Choix multiples</option>' +

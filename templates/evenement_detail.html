@@ -145,11 +145,13 @@
 
 <!-- Participants -->
 <div class="card" style="margin-bottom:20px;">
-  <div class="card-header" style="margin-bottom:12px;">
+  <div class="card-header" style="margin-bottom:14px;">
     <span class="card-title">👥 Participants</span>
-    <span style="font-size:0.8rem;color:var(--text-muted);">{{ participants|length }} participant(s)</span>
+    {% if participants %}
+    <span style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:20px;padding:2px 10px;font-size:0.78rem;font-weight:700;">{{ participants|length }}</span>
+    {% endif %}
   </div>
-  <div style="display:flex;gap:8px;margin-bottom:12px;">
+  <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
     <input type="text" id="new-participant-nom" list="parents-datalist"
            placeholder="Prénom Nom (saisie libre ou sélection parent)…"
            style="flex:1;" autocomplete="off">
@@ -158,13 +160,16 @@
   </div>
   <div id="participants-list">
     {% if participants %}
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
     {% for p in participants %}
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
-      <span style="flex:1;font-size:0.88rem;">👤 {{ p.nom }}</span>
+    <div style="display:inline-flex;align-items:center;gap:7px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:20px;padding:5px 10px 5px 6px;transition:background 0.15s;">
+      <div style="width:26px;height:26px;border-radius:50%;background:var(--primary);color:white;font-size:0.7rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">{{ p.nom[0]|upper }}</div>
+      <span style="font-size:0.85rem;font-weight:500;color:var(--text);">{{ p.nom }}</span>
       <button onclick="retirerInvite({{ p.id }})"
-              class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;font-size:0.7rem;">✕</button>
+              style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:0.75rem;padding:0 2px;line-height:1;margin-left:2px;" title="Retirer">✕</button>
     </div>
     {% endfor %}
+    </div>
     {% else %}
     <p class="empty-msg">Aucun participant — ajoutez des noms ci-dessus.</p>
     {% endif %}
@@ -218,8 +223,26 @@
 <script>
 var _evtQuillEditor = null;
 
+function _detailHeuresOptions() {
+  var s = '<option value="">— heure —</option>';
+  for (var t = 7 * 60; t <= 22 * 60; t += 30) {
+    var h = Math.floor(t / 60), hh = (h < 10 ? '0' : '') + h, mm = t % 60 === 0 ? '00' : '30';
+    s += '<option value="' + hh + ':' + mm + '">' + hh + 'h' + mm + '</option>';
+  }
+  return s;
+}
+
 function editerEvenement() {
   var d = {{ evt | tojson }};
+  var currentDH = '{{ creneaux[0].date_heure if creneaux else "" }}';
+  var dateFieldHtml = d.statut === 'confirme'
+    ? '<div class="form-group form-full" id="evt-date-field">' +
+      '<label>Date <span style="font-size:0.8rem;font-weight:400;color:#64748b;">(heure optionnelle)</span></label>' +
+      '<div style="display:flex;gap:8px;">' +
+      '<input type="date" id="evt-date-jour" style="flex:1;">' +
+      '<select id="evt-heure-sel" style="flex:0 0 108px;">' + _detailHeuresOptions() + '</select>' +
+      '</div></div>'
+    : '';
   openModal('Modifier l\'événement',
     '<div class="form-grid">' +
     '<div class="form-group form-full"><label>Titre *</label><input type="text" id="evt-titre" value="' + escHtml(d.titre||'') + '" required></div>' +
@@ -229,10 +252,19 @@ function editerEvenement() {
     '<option value="confirme"'      + (d.statut==='confirme'     ?' selected':'') + '>Confirmé</option>' +
     '<option value="annule"'        + (d.statut==='annule'       ?' selected':'') + '>Annulé</option>' +
     '</select></div>' +
+    dateFieldHtml +
     '<div class="form-group form-full"><label>Description</label><div id="evt-description-editor"></div></div>' +
     '</div><div class="form-actions">' +
     '<button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
     '<button type="button" class="btn btn-primary" onclick="saveEditionEvenement()">Enregistrer</button></div>');
+  if (d.statut === 'confirme' && currentDH) {
+    var sep = currentDH.indexOf('T') >= 0 ? 'T' : ' ';
+    var dhParts = currentDH.split(sep);
+    var dj = document.getElementById('evt-date-jour');
+    var hs = document.getElementById('evt-heure-sel');
+    if (dj) dj.value = dhParts[0];
+    if (hs && dhParts[1]) hs.value = dhParts[1].substring(0, 5);
+  }
   _evtQuillEditor = new Quill('#evt-description-editor', {
     theme: 'snow',
     placeholder: 'Description, ordre du jour…',
@@ -246,14 +278,21 @@ function saveEditionEvenement() {
   if (!titre) { alert('Le titre est obligatoire.'); return; }
   var desc = _evtQuillEditor ? _evtQuillEditor.root.innerHTML : '';
   if (desc === '<p><br></p>') desc = '';
+  var payload = {
+    titre: titre,
+    lieu: document.getElementById('evt-lieu').value,
+    statut: document.getElementById('evt-statut').value,
+    description: desc
+  };
+  var dfEl = document.getElementById('evt-date-field');
+  if (dfEl) {
+    var dateJour = (document.getElementById('evt-date-jour') || {}).value || '';
+    var heureVal = (document.getElementById('evt-heure-sel') || {}).value || '';
+    if (dateJour) payload.date_heure = heureVal ? dateJour + 'T' + heureVal : dateJour + 'T00:00';
+  }
   fetch('../api/evenements/{{ evt.id }}', {
     method: 'PUT', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({
-      titre: titre,
-      lieu: document.getElementById('evt-lieu').value,
-      statut: document.getElementById('evt-statut').value,
-      description: desc
-    })
+    body: JSON.stringify(payload)
   }).then(function(){ closeModal(); location.reload(); });
 }
 
@@ -352,11 +391,33 @@ function retirerInvite(pid) {
     .then(function(){ location.reload(); });
 }
 
-// Mise en forme automatique de la description : paragraphes longs avec " - " → liste
+// Mise en forme automatique de la description : " - " → liste (texte brut ou HTML Quill)
 (function() {
   var desc = document.querySelector('.evt-desc');
   if (!desc) return;
-  desc.querySelectorAll('p').forEach(function(p) {
+  var ps = desc.querySelectorAll('p');
+  if (ps.length === 0) {
+    // Texte brut (ancien contenu sans HTML) — convertir ou appliquer pre-wrap
+    var text = desc.textContent.trim();
+    if (text.includes(' - ') && text.length > 60) {
+      var parts = text.split(' - ').map(function(s){ return s.trim(); }).filter(Boolean);
+      if (parts.length >= 2) {
+        var ul = document.createElement('ul');
+        parts.forEach(function(part) {
+          var li = document.createElement('li');
+          li.textContent = part;
+          ul.appendChild(li);
+        });
+        desc.innerHTML = '';
+        desc.appendChild(ul);
+        return;
+      }
+    }
+    desc.style.whiteSpace = 'pre-wrap';
+    return;
+  }
+  // Contenu HTML Quill — traiter les paragraphes
+  ps.forEach(function(p) {
     var html = p.innerHTML.trim();
     if (!html || html.length < 60 || !html.includes(' - ')) return;
     var parts = html.split(' - ').map(function(s){ return s.trim(); }).filter(Boolean);
