@@ -42,24 +42,33 @@
   #}
   {% set ns = namespace(prev_above=-100, prev_below=-100) %}
   <div id="tl-scroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch;cursor:grab;scrollbar-width:thin;">
-    <div style="position:relative;width:3000px;height:190px;">
+    {#
+      Axe à y=108. Dot centré à y=108 (top=102, h=12).
+      above-court : label top=46  (bottom≈78), conn top=84  h=18
+      above-long  : label top=2   (bottom≈34), conn top=40  h=62
+      below-court : label top=136 (bottom≈168), conn top=120 h=16
+      below-long  : label top=178 (bottom≈210), conn top=120 h=58
+      Tick mensuel : top=111, texte top=118
+      Hauteur conteneur : 220px
+    #}
+    <div style="position:relative;width:3000px;height:220px;">
 
       {# ── Axe ── #}
-      <div style="position:absolute;top:88px;left:0;right:24px;height:2px;background:#dbeafe;border-radius:1px;"></div>
-      <div style="position:absolute;top:81px;right:0;width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:18px solid #dbeafe;"></div>
+      <div style="position:absolute;top:108px;left:0;right:24px;height:2px;background:#dbeafe;border-radius:1px;"></div>
+      <div style="position:absolute;top:101px;right:0;width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:18px solid #dbeafe;"></div>
 
       {# ── Repères mensuels ── #}
       {% for m in months %}
-      <div style="position:absolute;top:91px;left:{{ m.pct }}%;transform:translateX(-50%);">
+      <div style="position:absolute;top:111px;left:{{ m.pct }}%;transform:translateX(-50%);">
         <div style="width:1px;height:6px;background:#bfdbfe;margin:0 auto;"></div>
-        <div style="font-size:0.66rem;color:#60a5fa;text-align:center;white-space:nowrap;margin-top:3px;font-weight:600;letter-spacing:-0.01em;">{{ m.label }}</div>
+        <div style="font-size:0.65rem;color:#93c5fd;text-align:center;white-space:nowrap;margin-top:3px;font-weight:600;letter-spacing:-0.01em;">{{ m.label }}</div>
       </div>
       {% endfor %}
 
       {# ── Aujourd'hui ── #}
       {% if today_pct %}
-      <div style="position:absolute;top:60px;left:{{ today_pct }}%;transform:translateX(-50%);z-index:4;">
-        <div style="width:2px;height:42px;background:#f59e0b;margin:0 auto;opacity:0.85;border-radius:1px;"></div>
+      <div style="position:absolute;top:76px;left:{{ today_pct }}%;transform:translateX(-50%);z-index:4;">
+        <div style="width:2px;height:52px;background:#f59e0b;margin:0 auto;opacity:0.85;border-radius:1px;"></div>
         <div style="font-size:0.62rem;color:#f59e0b;font-weight:700;text-align:center;white-space:nowrap;margin-top:3px;">auj.</div>
       </div>
       {% endif %}
@@ -75,34 +84,34 @@
       {% elif e.statut == 'confirme'%}{% set dc = '#16a34a' %}{% set tc = '#166534' %}
       {% else                       %}{% set dc = '#1e40af' %}{% set tc = '#1e40af' %}{% endif %}
 
-      {# Dot centré à y=88 #}
-      <div style="position:absolute;top:82px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:12px;height:12px;border-radius:50%;background:{{ dc }};border:2px solid white;z-index:3;box-shadow:0 0 0 3px {{ dc }}33;"></div>
+      {# Dot centré à y=108 #}
+      <div style="position:absolute;top:102px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:12px;height:12px;border-radius:50%;background:{{ dc }};border:2px solid white;z-index:3;box-shadow:0 0 0 3px {{ dc }}33;"></div>
 
       {% if above and not far %}
-        {# above-court : conn 74→82, label top=42 #}
-        <div style="position:absolute;top:74px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:8px;background:{{ dc }}55;"></div>
-        <div style="position:absolute;top:42px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:150px;text-align:center;">
+        {# above-court : conn 84→102, label top=46 #}
+        <div style="position:absolute;top:84px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:18px;background:{{ dc }}55;"></div>
+        <div style="position:absolute;top:46px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:150px;text-align:center;">
           <div style="font-size:0.84rem;font-weight:700;color:{{ tc }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.titre }}</div>
           <div style="font-size:0.70rem;color:#94a3b8;margin-top:3px;white-space:nowrap;">{{ (e.date_retenue if e.date_retenue else e.prochain_creneau) | d_court }}</div>
         </div>
       {% elif above and far %}
-        {# above-long : conn 30→82, label top=2 #}
-        <div style="position:absolute;top:30px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:52px;background:{{ dc }}55;"></div>
+        {# above-long : conn 40→102, label top=2 #}
+        <div style="position:absolute;top:40px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:62px;background:{{ dc }}55;"></div>
         <div style="position:absolute;top:2px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:150px;text-align:center;">
           <div style="font-size:0.84rem;font-weight:700;color:{{ tc }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.titre }}</div>
           <div style="font-size:0.70rem;color:#94a3b8;margin-top:3px;white-space:nowrap;">{{ (e.date_retenue if e.date_retenue else e.prochain_creneau) | d_court }}</div>
         </div>
       {% elif not above and not far %}
-        {# below-court : conn 94→102, label top=104 #}
-        <div style="position:absolute;top:94px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:10px;background:{{ dc }}55;"></div>
-        <div style="position:absolute;top:104px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:150px;text-align:center;">
+        {# below-court : conn 120→136, label top=136 #}
+        <div style="position:absolute;top:120px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:16px;background:{{ dc }}55;"></div>
+        <div style="position:absolute;top:136px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:150px;text-align:center;">
           <div style="font-size:0.84rem;font-weight:700;color:{{ tc }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.titre }}</div>
           <div style="font-size:0.70rem;color:#94a3b8;margin-top:3px;white-space:nowrap;">{{ (e.date_retenue if e.date_retenue else e.prochain_creneau) | d_court }}</div>
         </div>
       {% else %}
-        {# below-long : conn 94→146, label top=148 #}
-        <div style="position:absolute;top:94px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:54px;background:{{ dc }}55;"></div>
-        <div style="position:absolute;top:148px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:150px;text-align:center;">
+        {# below-long : conn 120→178, label top=178 #}
+        <div style="position:absolute;top:120px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:1.5px;height:58px;background:{{ dc }}55;"></div>
+        <div style="position:absolute;top:178px;left:{{ e.tl_pct }}%;transform:translateX(-50%);width:150px;text-align:center;">
           <div style="font-size:0.84rem;font-weight:700;color:{{ tc }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.titre }}</div>
           <div style="font-size:0.70rem;color:#94a3b8;margin-top:3px;white-space:nowrap;">{{ (e.date_retenue if e.date_retenue else e.prochain_creneau) | d_court }}</div>
         </div>

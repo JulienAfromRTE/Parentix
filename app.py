@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 APP_NAME    = "Parentix"
 APP_SLUG    = "parentix"
-APP_RELEASE = "v1.5"
+APP_RELEASE = "v1.6"
 APP_DESCRIPTION = "Pilotage de l'association FCPE : taches, depenses, recettes, evenements, kermesse"
 APP_ICON    = "🏫"
 APP_COLOR   = "#1e40af"
