@@ -10,7 +10,7 @@
   <title>{{ APP_NAME }}</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ APP_RELEASE }}">
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -102,7 +102,7 @@
     </div>
   </nav>
 
-  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v={{ APP_RELEASE }}"></script>
   {% block scripts %}{% endblock %}
   <script>
     if ('serviceWorker' in navigator) {

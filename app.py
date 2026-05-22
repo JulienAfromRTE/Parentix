@@ -101,6 +101,11 @@ def format_d_court(s):
         return s[:10]
 
 
+@app.errorhandler(413)
+def trop_grand(_e):
+    return jsonify({"ok": False, "error": "Fichier trop volumineux (10 Mo max)"}), 413
+
+
 @app.before_request
 def count_requests():
     global request_count
