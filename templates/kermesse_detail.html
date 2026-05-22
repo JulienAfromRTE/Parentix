@@ -32,36 +32,6 @@
 </div>
 {% else %}
 
-<!-- Vue globale : inscription rapide -->
-<div class="card" style="margin-bottom:20px;padding:16px;">
-  <div style="font-size:0.85rem;font-weight:700;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em;">S'inscrire à un stand</div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
-    <div style="flex:1;min-width:200px;">
-      <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">Votre prénom et nom</label>
-      <input type="text" id="insc-nom" placeholder="Marie Dupont">
-    </div>
-    <div style="flex:1;min-width:160px;">
-      <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">Créneau</label>
-      <select id="insc-creneau">
-        <option value="matin">Matin</option>
-        <option value="apres-midi">Après-midi</option>
-        <option value="journee" selected>Journée entière</option>
-      </select>
-    </div>
-    <div style="flex:2;min-width:200px;">
-      <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">Stand</label>
-      <select id="insc-stand">
-        {% for s in stands %}
-        <option value="{{ s.id }}" {% if s.places_restantes == 0 %}disabled{% endif %}>
-          {{ s.nom }} ({{ s.nb_inscrits }}/{{ s.capacite }}){% if s.places_restantes == 0 %} — COMPLET{% endif %}
-        </option>
-        {% endfor %}
-      </select>
-    </div>
-    <button class="btn btn-primary" onclick="sInscrire()">S'inscrire</button>
-  </div>
-</div>
-
 <!-- Grille des stands -->
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
   {% for s in stands %}

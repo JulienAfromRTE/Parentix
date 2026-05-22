@@ -32,12 +32,6 @@
   </div>
 </div>
 
-{% if evt.description %}
-<div class="card evt-desc" style="margin-bottom:16px;padding:14px 16px;font-size:0.9rem;color:var(--text-muted);line-height:1.6;">
-  {{ evt.description | safe }}
-</div>
-{% endif %}
-
 {% if evt.statut == 'confirme' %}
 
 <!-- Date fixe confirmée -->
@@ -53,7 +47,19 @@
 </div>
 {% endif %}
 
+{% if evt.description %}
+<div class="card evt-desc" style="margin-bottom:16px;padding:14px 16px;font-size:0.9rem;color:var(--text-muted);line-height:1.6;">
+  {{ evt.description | safe }}
+</div>
+{% endif %}
+
 {% else %}
+
+{% if evt.description %}
+<div class="card evt-desc" style="margin-bottom:16px;padding:14px 16px;font-size:0.9rem;color:var(--text-muted);line-height:1.6;">
+  {{ evt.description | safe }}
+</div>
+{% endif %}
 
 <!-- Formulaire de disponibilité (sondage uniquement) -->
 <div class="card" style="margin-bottom:20px;">
