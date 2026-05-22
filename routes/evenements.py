@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify
 from datetime import datetime, date
 from db import get_db
+from routes.pieces_jointes import supprimer_pj_entite
 import secrets
 
 bp = Blueprint('evenements', __name__)
@@ -196,6 +197,7 @@ def api_delete_evenement(eid):
         db.execute("DELETE FROM evenement_disponibilites WHERE creneau_id=?", (cid,))
     db.execute("DELETE FROM evenement_creneaux WHERE evenement_id=?", (eid,))
     db.execute("DELETE FROM evenement_participants WHERE evenement_id=?", (eid,))
+    supprimer_pj_entite(db, 'evenement', eid)
     db.execute("DELETE FROM evenements WHERE id=?", (eid,))
     db.commit()
     db.close()

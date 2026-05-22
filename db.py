@@ -167,6 +167,16 @@ def init_db():
             FOREIGN KEY (vote_id) REFERENCES votes(id),
             FOREIGN KEY (option_id) REFERENCES vote_options(id)
         );
+        CREATE TABLE IF NOT EXISTS pieces_jointes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entite TEXT NOT NULL,
+            entite_id INTEGER NOT NULL,
+            nom_fichier TEXT NOT NULL,
+            nom_original TEXT NOT NULL,
+            taille INTEGER NOT NULL,
+            mime_type TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     """)
     db.commit()
 

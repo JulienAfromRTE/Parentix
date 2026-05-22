@@ -70,6 +70,9 @@
       <td>
         <div style="display:flex;gap:4px;">
           <button onclick="editerDepense(this)" data-dep='{{ d|tojson }}' class="btn btn-secondary btn-sm">✏️</button>
+          <button onclick="ouvrirPjModal('depense', {{ d.id }}, this.dataset.nom, '')"
+                  data-nom='{{ d.libelle|e }}'
+                  class="btn btn-sm" style="background:#e0f2fe;color:#0c4a6e;border:1px solid #7dd3fc;">📎</button>
           <button onclick="supprimerDepense({{ d.id }})" class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;">🗑</button>
         </div>
       </td>

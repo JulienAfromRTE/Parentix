@@ -205,6 +205,77 @@ function soumettreCommentaireInline(entite, eid, urlPrefix) {
     });
 }
 
+// ─── PIECES JOINTES ──────────────────────────────────────────────────────────
+function _formatTaille(octets) {
+  if (octets < 1024) return octets + ' o';
+  if (octets < 1024 * 1024) return Math.round(octets / 1024) + ' Ko';
+  return (octets / (1024 * 1024)).toFixed(1) + ' Mo';
+}
+
+var _pjEntite = null, _pjEntiteId = null, _pjUrlPrefix = '';
+
+function ouvrirPjModal(entite, id, nom, urlPrefix) {
+  _pjEntite = entite;
+  _pjEntiteId = id;
+  _pjUrlPrefix = urlPrefix || '';
+  openModal('📎 Pièces jointes — ' + nom,
+    '<div id="pj-modal-list" style="min-height:40px;margin-bottom:16px;"></div>' +
+    '<div style="display:flex;gap:8px;align-items:center;padding-top:12px;border-top:1px solid var(--border);">' +
+    '<input type="file" id="pj-modal-input" style="flex:1;font-size:0.82rem;">' +
+    '<button class="btn btn-primary btn-sm" onclick="uploadPjModal()">📎 Joindre</button>' +
+    '</div>' +
+    '<div class="form-actions"><button type="button" class="btn btn-secondary" onclick="closeModal()">Fermer</button></div>');
+  _chargerPjModal();
+}
+
+function _chargerPjModal() {
+  var container = document.getElementById('pj-modal-list');
+  if (!container) return;
+  container.innerHTML = '<p style="color:var(--text-muted);font-size:0.82rem;">Chargement…</p>';
+  fetch(_pjUrlPrefix + 'api/pieces-jointes/' + _pjEntite + '/' + _pjEntiteId)
+    .then(function(r){ return r.json(); })
+    .then(function(pjs){ _renderPjModal(pjs); });
+}
+
+function _renderPjModal(pjs) {
+  var container = document.getElementById('pj-modal-list');
+  if (!container) return;
+  if (!pjs.length) {
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:0.82rem;font-style:italic;margin:0 0 4px;">Aucune pièce jointe.</p>';
+    return;
+  }
+  container.innerHTML = pjs.map(function(pj) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">' +
+      '<a href="' + _pjUrlPrefix + 'api/pieces-jointes/' + pj.id + '/download"' +
+      ' style="flex:1;font-size:0.85rem;color:var(--primary);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" target="_blank">📎 ' + escHtml(pj.nom_original) + '</a>' +
+      '<span style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;">' + _formatTaille(pj.taille) + '</span>' +
+      '<button onclick="supprimerPjModal(' + pj.id + ')"' +
+      ' style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:4px;padding:2px 6px;font-size:0.7rem;cursor:pointer;line-height:1.2;">✕</button>' +
+      '</div>';
+  }).join('');
+}
+
+function uploadPjModal() {
+  var input = document.getElementById('pj-modal-input');
+  if (!input || !input.files.length) { alert('Sélectionnez un fichier.'); return; }
+  var file = input.files[0];
+  if (file.size > 10 * 1024 * 1024) { alert('Fichier trop volumineux (10 Mo max).'); return; }
+  var fd = new FormData();
+  fd.append('fichier', file);
+  fetch(_pjUrlPrefix + 'api/pieces-jointes/' + _pjEntite + '/' + _pjEntiteId, { method: 'POST', body: fd })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (data.ok) { input.value = ''; _chargerPjModal(); }
+      else { alert(data.error || 'Erreur lors de l\'upload.'); }
+    });
+}
+
+function supprimerPjModal(pjId) {
+  if (!confirm('Supprimer cette pièce jointe ?')) return;
+  fetch(_pjUrlPrefix + 'api/pieces-jointes/' + pjId, { method: 'DELETE' })
+    .then(function(){ _chargerPjModal(); });
+}
+
 function _copierFallback(url, cb) {
   var el = document.createElement('textarea');
   el.value = url;

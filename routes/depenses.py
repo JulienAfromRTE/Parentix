@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify
 from db import get_db, PALETTE
+from routes.pieces_jointes import supprimer_pj_entite
 
 bp = Blueprint('depenses', __name__)
 
@@ -84,6 +85,7 @@ def api_update_depense(did):
 @bp.route('/api/depenses/<int:did>', methods=['DELETE'])
 def api_delete_depense(did):
     db = get_db()
+    supprimer_pj_entite(db, 'depense', did)
     db.execute("DELETE FROM depenses WHERE id=?", (did,))
     db.commit()
     db.close()

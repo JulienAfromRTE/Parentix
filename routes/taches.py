@@ -1,6 +1,7 @@
 import json as _json
 from flask import Blueprint, render_template, request, jsonify
 from db import get_db
+from routes.pieces_jointes import supprimer_pj_entite
 
 bp = Blueprint('taches', __name__)
 
@@ -102,6 +103,7 @@ def api_update_tache(tid):
 @bp.route('/api/taches/<int:tid>', methods=['DELETE'])
 def api_delete_tache(tid):
     db = get_db()
+    supprimer_pj_entite(db, 'tache', tid)
     db.execute("DELETE FROM taches WHERE id=?", (tid,))
     db.commit()
     db.close()

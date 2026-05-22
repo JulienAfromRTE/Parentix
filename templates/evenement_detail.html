@@ -202,6 +202,18 @@
   </div>
 </div>
 
+<!-- Pièces jointes -->
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-header" style="margin-bottom:14px;">
+    <span class="card-title">📎 Pièces jointes</span>
+  </div>
+  <div id="evt-pj-list"></div>
+  <div style="display:flex;gap:8px;align-items:center;padding-top:12px;border-top:1px solid var(--border);margin-top:4px;">
+    <input type="file" id="evt-pj-input" style="flex:1;font-size:0.82rem;">
+    <button class="btn btn-primary btn-sm" onclick="uploadPjEvenement({{ evt.id }})">📎 Joindre</button>
+  </div>
+</div>
+
 <!-- Gestion des créneaux (admin) -->
 <div class="card">
   <div class="card-header" style="margin-bottom:12px;">
@@ -454,5 +466,54 @@ function retirerInvite(pid) {
 })();
 
 initCommentairesInline('evenement', {{ evt.id }}, '../');
+
+function chargerPjEvenement(eid) {
+  var container = document.getElementById('evt-pj-list');
+  if (!container) return;
+  fetch('../api/pieces-jointes/evenement/' + eid)
+    .then(function(r){ return r.json(); })
+    .then(function(pjs){ renderPjEvenement(pjs, eid); });
+}
+
+function renderPjEvenement(pjs, eid) {
+  var container = document.getElementById('evt-pj-list');
+  if (!container) return;
+  if (!pjs.length) {
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:0.82rem;font-style:italic;margin:0 0 8px;">Aucune pièce jointe.</p>';
+    return;
+  }
+  container.innerHTML = pjs.map(function(pj) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">' +
+      '<a href="../api/pieces-jointes/' + pj.id + '/download"' +
+      ' style="flex:1;font-size:0.85rem;color:var(--primary);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" target="_blank">📎 ' + escHtml(pj.nom_original) + '</a>' +
+      '<span style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;">' + _formatTaille(pj.taille) + '</span>' +
+      '<button onclick="supprimerPjEvenement(' + pj.id + ',' + eid + ')"' +
+      ' style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:4px;padding:2px 6px;font-size:0.7rem;cursor:pointer;line-height:1.2;">✕</button>' +
+      '</div>';
+  }).join('');
+}
+
+function uploadPjEvenement(eid) {
+  var input = document.getElementById('evt-pj-input');
+  if (!input || !input.files.length) { alert('Sélectionnez un fichier.'); return; }
+  var file = input.files[0];
+  if (file.size > 10 * 1024 * 1024) { alert('Fichier trop volumineux (10 Mo max).'); return; }
+  var fd = new FormData();
+  fd.append('fichier', file);
+  fetch('../api/pieces-jointes/evenement/' + eid, { method: 'POST', body: fd })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (data.ok) { input.value = ''; chargerPjEvenement(eid); }
+      else { alert(data.error || 'Erreur lors de l\'upload.'); }
+    });
+}
+
+function supprimerPjEvenement(pjId, eid) {
+  if (!confirm('Supprimer cette pièce jointe ?')) return;
+  fetch('../api/pieces-jointes/' + pjId, { method: 'DELETE' })
+    .then(function(){ chargerPjEvenement(eid); });
+}
+
+chargerPjEvenement({{ evt.id }});
 </script>
 {% endblock %}

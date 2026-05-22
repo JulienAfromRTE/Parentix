@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 APP_NAME    = "Parentix"
 APP_SLUG    = "parentix"
-APP_RELEASE = "v1.7"
+APP_RELEASE = "v1.8"
 APP_DESCRIPTION = "Pilotage de l'association FCPE : taches, depenses, recettes, evenements, kermesse"
 APP_ICON    = "🏫"
 APP_COLOR   = "#1e40af"
@@ -30,6 +30,7 @@ from routes.kermesse import bp as kermesse_bp
 from routes.parametres import bp as parametres_bp
 from routes.votes import bp as votes_bp
 from routes.commentaires import bp as commentaires_bp
+from routes.pieces_jointes import bp as pieces_jointes_bp
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(APP_NAME)
@@ -60,6 +61,8 @@ app.register_blueprint(kermesse_bp)
 app.register_blueprint(parametres_bp)
 app.register_blueprint(votes_bp)
 app.register_blueprint(commentaires_bp)
+app.register_blueprint(pieces_jointes_bp)
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 
 request_count = 0
 start_time = time.time()
